@@ -1,0 +1,24 @@
+[project]
+name = "asr-data-scaling"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Ehsan Taati",email = "55898484+ehsantaati@users.noreply.github.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas (>=2.3.3,<3.0.0)",
+    "ipykernel (>=7.1.0,<8.0.0)",
+    "iprogress (>=0.4,<0.5)",
+    "python-dotenv (>=1.2.1,<2.0.0)",
+    "ipywidgets (>=8.1.8,<9.0.0)",
+    "numpy (==1.26.4)",
+    "datasets (==3.6.0)",
+    "librosa (>=0.11.0,<0.12.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
