@@ -1,0 +1,18 @@
+# Experiment Configuration
+
+data_config_path: "train_config.yml"
+model_id: "openai/whisper-tiny"
+language: "en"
+task: "transcribe"
+output_dir: "./output"
+
+# Training Arguments
+per_device_train_batch_size: 16
+gradient_accumulation_steps: 1
+learning_rate: 1.0e-5
+num_train_epochs: 3
+evaluation_strategy: "epoch"
+save_strategy: "epoch"
+logging_strategy: "steps"
+logging_steps: 10
+fp16: true
