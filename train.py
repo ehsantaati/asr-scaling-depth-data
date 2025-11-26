@@ -3,10 +3,11 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import evaluate
 import simple_parsing
+import wandb
 import torch
 import transformers
 from peft import LoraConfig, TaskType, get_peft_model
@@ -144,9 +145,10 @@ def run_inference(
     processor: WhisperProcessor,
     dataset: datasets.SizedIterableDataset,
     device: torch.device,
-) -> Dict[str, float]:
+) -> Tuple[Dict[str, float], List[str], List[str]]:
     """
     Runs inference on the dataset and computes WER.
+    Returns metrics, predictions, and references.
     """
     logging.info("Starting inference...")
     model.eval()
@@ -192,7 +194,7 @@ def run_inference(
     wer = metric.compute(predictions=predictions, references=references)
     logging.info(f"Final Inference WER: {wer}")
     
-    return {"wer": wer}
+    return {"wer": wer}, predictions, references
 
 
 class DataCollatorSpeechSeq2SeqWithPadding:
@@ -361,7 +363,7 @@ def main():
                 evaluation_strategy="steps" if config.do_eval else "no",
                 eval_steps=config.eval_steps,
                 save_strategy="no", # Save only at end to save space
-                report_to=["tensorboard"],
+                report_to=["wandb", "tensorboard"],
                 remove_unused_columns=False, # Required for custom collator/dataset
                 label_names=["labels"], 
             )
@@ -397,13 +399,28 @@ def main():
             
             # Ensure model is on correct device
             device = trainer.args.device
-            metrics = run_inference(model, processor, val_dataset, device)
+            metrics, predictions, references = run_inference(model, processor, val_dataset, device)
             
             # Save metrics
             import json
             with open(output_dir / "inference_metrics.json", "w") as f:
                 json.dump(metrics, f, indent=2)
             
+            # Log to WandB and TensorBoard
+            if wandb.run is not None:
+                wandb.log({f"inference/{k}": v for k, v in metrics.items()})
+            
+            # For TensorBoard, we can use the trainer's callback if available, or just rely on WandB for custom metrics
+            # But since the trainer loop is done, we might need manual logging.
+            # However, standard training metrics are already logged.
+            # Let's try to use the SummaryWriter from the trainer's callback if accessible, or create a new one.
+            # A simple way is to use torch.utils.tensorboard.SummaryWriter
+            from torch.utils.tensorboard import SummaryWriter
+            tb_writer = SummaryWriter(log_dir=str(output_dir / "runs"))
+            for k, v in metrics.items():
+                tb_writer.add_scalar(f"inference/{k}", v, global_step=trainer.state.global_step)
+            tb_writer.close()
+
             # Cleanup
             del model
             del trainer

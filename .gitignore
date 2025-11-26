@@ -183,3 +183,5 @@ cython_debug/
 *.code-workspace
 data/*
 outputs/*
+wandb/*
+
