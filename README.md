@@ -2,12 +2,7 @@
 
 
 ## Setup
-
-1. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
-2. Open `.env` and add your Hugging Face token:
+Open `.env` and add your Hugging Face token:
    ```
    HF_TOKEN=hf_...
    ```
