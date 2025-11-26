@@ -239,6 +239,10 @@ class DataCollatorSpeechSeq2SeqWithPadding:
 def main():
     logging.basicConfig(level=logging.INFO)
     
+    # Register pre-defined datasets
+    import src.data.configs
+    registry.register_datasets(src.data.configs.ALL_CONFIGS)
+    
     # Parse config
     config = simple_parsing.parse(TrainConfig, add_config_path_arg=True)
     
