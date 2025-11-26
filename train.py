@@ -319,6 +319,11 @@ def main():
             )
 
             # 4. Train
+            if config.do_eval:
+                logging.info("Running initial evaluation...")
+                metrics = trainer.evaluate()
+                logging.info(f"Initial metrics: {metrics}")
+
             trainer.train()
             
             # 5. Save Final Model
