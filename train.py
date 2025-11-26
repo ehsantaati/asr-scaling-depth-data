@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import evaluate
 import simple_parsing
 import torch
 import transformers
@@ -136,6 +137,62 @@ def set_trainable_parameters(model: torch.nn.Module, target_modules: Optional[Li
             
     logging.info(f"Set trainability based on target_modules: {target_modules}")
     logging.info(f"Trainable params: {trainable_params} / {all_params} ({trainable_params/all_params:.2%})")
+
+
+def run_inference(
+    model: torch.nn.Module,
+    processor: WhisperProcessor,
+    dataset: datasets.SizedIterableDataset,
+    device: torch.device,
+) -> Dict[str, float]:
+    """
+    Runs inference on the dataset and computes WER.
+    """
+    logging.info("Starting inference...")
+    model.eval()
+    metric = evaluate.load("wer")
+    
+    predictions = []
+    references = []
+    
+    # Iterate over dataset
+    # Note: This assumes dataset yields samples with 'audio' and 'text'
+    # We need to process them manually since we are not using the Trainer's loop
+    
+    from tqdm import tqdm
+    
+    for i, sample in tqdm(enumerate(dataset), desc="Inference"):
+        # Process audio
+        audio = sample.audio
+        input_features = processor(
+            audio, sampling_rate=16000, return_tensors="pt"
+        ).input_features
+        input_features = input_features.to(device)
+        
+        # Generate
+        with torch.no_grad():
+            generated_ids = model.generate(input_features)
+        
+        # Decode
+        transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        reference = sample.text
+        
+        # Normalization (simple lowercasing for now)
+        transcription = transcription.lower()
+        reference = reference.lower()
+        
+        predictions.append(transcription)
+        references.append(reference)
+        
+        if i < 3:
+            logging.info(f"Sample {i}:")
+            logging.info(f"  Ref: {reference}")
+            logging.info(f"  Pred: {transcription}")
+
+    wer = metric.compute(predictions=predictions, references=references)
+    logging.info(f"Final Inference WER: {wer}")
+    
+    return {"wer": wer}
 
 
 class DataCollatorSpeechSeq2SeqWithPadding:
@@ -328,6 +385,24 @@ def main():
             
             # 5. Save Final Model
             trainer.save_model()
+            
+            # 6. Run Inference
+            logging.info("Running post-training inference...")
+            # Use the validation dataset for inference (or a separate eval set if configured)
+            # Note: val_dataset is already a Dataproc wrapper, but run_inference expects raw samples
+            # So we use the underlying dataset or re-create it.
+            # Actually, val_dataset in main() is the raw dataset before Dataproc wrapper
+            # But wait, val_dataset was passed to WhisperDataproc.
+            # Let's use the raw val_dataset we created earlier.
+            
+            # Ensure model is on correct device
+            device = trainer.args.device
+            metrics = run_inference(model, processor, val_dataset, device)
+            
+            # Save metrics
+            import json
+            with open(output_dir / "inference_metrics.json", "w") as f:
+                json.dump(metrics, f, indent=2)
             
             # Cleanup
             del model
