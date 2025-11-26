@@ -309,6 +309,20 @@ def main():
             )
             model.config.forced_decoder_ids = None
             model.config.suppress_tokens = []
+
+            # Untie embeddings and reinitialize output weights
+            if model.config.tie_word_embeddings:
+                model.config.tie_word_embeddings = False
+                # Clone the input embeddings to initialize the output projection
+                # Whisper's output projection is typically 'proj_out'
+                if hasattr(model, "proj_out"):
+                     # The decoder embeddings are usually the source
+                     decoder_embed_weight = model.model.decoder.embed_tokens.weight
+                     model.proj_out = torch.nn.Linear(decoder_embed_weight.shape[1], decoder_embed_weight.shape[0], bias=False)
+                     model.proj_out.weight.data.copy_(decoder_embed_weight.data)
+                else:
+                    logging.warning("Could not find 'proj_out' to reinitialize after untying embeddings.")
+            
             
             # Set trainable parameters or apply LoRA
             if config.lora_config is not None:
