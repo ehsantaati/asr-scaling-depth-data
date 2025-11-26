@@ -18,10 +18,9 @@ from transformers import (
     WhisperProcessor,
 )
 
-# Add src to path so we can import from it
-sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
-from src.data import datasets, registry, types, partitioning
+
+from data import datasets, registry, types, partitioning
 
 
 @dataclasses.dataclass
@@ -240,8 +239,8 @@ def main():
     logging.basicConfig(level=logging.INFO)
     
     # Register pre-defined datasets
-    import src.data.configs
-    registry.register_datasets(src.data.configs.ALL_CONFIGS)
+    import data.configs
+    registry.register_datasets(data.configs.ALL_CONFIGS)
     
     # Parse config
     config = simple_parsing.parse(TrainConfig, add_config_path_arg=True)
@@ -364,7 +363,7 @@ def main():
                 num_train_epochs=config.num_epochs,
                 fp16=config.fp16,
                 logging_steps=10,
-                evaluation_strategy="steps" if config.do_eval else "no",
+                eval_strategy="steps" if config.do_eval else "no",
                 eval_steps=config.eval_steps,
                 save_strategy="no", # Save only at end to save space
                 report_to=["wandb", "tensorboard"],
