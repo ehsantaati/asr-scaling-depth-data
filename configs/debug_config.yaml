@@ -1,0 +1,40 @@
+model_id: "openai/whisper-tiny"
+language: "en"
+task: "transcribe"
+# target_modules: ["encoder"] # Example: only train encoder
+# lora_config:
+#   r: 8
+#   lora_alpha: 32
+#   target_modules: ["q_proj", "v_proj"]
+
+train_sets:
+  - name: "dummy"
+    path: "hf-internal-testing/librispeech_asr_dummy"
+    splits:
+      - name: "validation"
+        num_samples: 73
+
+val_sets:
+  - name: "dummy"
+    path: "hf-internal-testing/librispeech_asr_dummy"
+    splits:
+      - name: "validation"
+        num_samples: 20
+
+train_dataset_args:
+  split: "TRAIN"
+  shuffle: true
+  max_audio_duration_secs: 30
+
+val_dataset_args:
+  split: "VALIDATION"
+  max_samples: 20
+
+data_fractions: [0.5, 1.0]
+num_subsets: 1
+
+output_dir: "outputs/debug_run"
+num_epochs: 1
+batch_size: 2
+learning_rate: 1.0e-5
+fp16: false # CPU testing might fail with fp16

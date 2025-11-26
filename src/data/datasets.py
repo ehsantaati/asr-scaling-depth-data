@@ -105,7 +105,6 @@ class VoiceDataset(SizedIterableDataset):
             path,
             name,
             split=split,
-            trust_remote_code=True,
             streaming=streaming,
             features=features,
             download_config=hf_datasets.DownloadConfig(max_retries=10),
