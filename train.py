@@ -9,6 +9,7 @@ import evaluate
 import simple_parsing
 import wandb
 import torch
+from dotenv import load_dotenv
 import transformers
 from peft import LoraConfig, TaskType, get_peft_model
 from transformers import (
@@ -236,6 +237,7 @@ class DataCollatorSpeechSeq2SeqWithPadding:
 
 
 def main():
+    load_dotenv()
     logging.basicConfig(level=logging.INFO)
     
     # Register pre-defined datasets
