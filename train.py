@@ -393,7 +393,7 @@ def main():
                 train_dataset=train_dataset_proc,
                 eval_dataset=val_dataset_proc,
                 data_collator=DataCollatorSpeechSeq2SeqWithPadding(processor),
-                tokenizer=processor.feature_extractor,
+                processing_class=processor.feature_extractor,
             )
 
             # 4. Train
