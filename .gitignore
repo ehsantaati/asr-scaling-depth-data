@@ -181,7 +181,7 @@ cython_debug/
 .cursorindexingignore
 .DS_Store
 *.code-workspace
-data/*
+
 outputs/*
 wandb/*
 
