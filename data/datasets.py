@@ -529,12 +529,38 @@ class Range(SizedIterableDataset):
         num_samples: Optional[int] = None,
     ) -> None:
         self._dataset = dataset
-        self._length = num_samples or len(dataset)
-        if self._length > len(dataset):
+        try:
+            ds_len = len(dataset)
+        except (ValueError, TypeError):
+            ds_len = float("inf")
+
+        self._length = num_samples or ds_len
+        
+        if ds_len != float("inf") and self._length > ds_len:
             warnings.warn(
-                f"num_samples ({self._length}) exceeds dataset length ({len(dataset)}). Truncating to {len(dataset)}."
+                f"num_samples ({self._length}) exceeds dataset length ({ds_len}). Truncating to {ds_len}."
             )
-            self._length = len(dataset)
+            self._length = ds_len
+        
+        if self._length == float("inf"):
+             # If we still have infinite length (no num_samples provided and dataset is infinite), 
+             # we can't really set a length for Range. 
+             # But Range is usually used to *limit* samples. 
+             # If num_samples is None, we just pass through.
+             # But we need an integer for __len__.
+             # Let's default to a large number or keep it as is?
+             # SizedIterableDataset requires int.
+             # If we are here, it means we probably want to just iterate until exhaustion if num_samples is None.
+             # But __len__ must return int.
+             pass
+
+        # If self._length is still inf, we cast to a large int for __len__ protocol if needed, 
+        # or we accept that len(Range) might fail too if we don't set it.
+        # But let's just use the logic above. 
+        if self._length == float("inf"):
+             # Fallback for __len__
+             self._length = 2**63 - 1 
+
         self._name = f"{dataset.name}.{self._length}"
 
     def __iter__(self):
