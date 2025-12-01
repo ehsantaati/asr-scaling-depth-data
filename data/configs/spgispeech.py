@@ -14,11 +14,11 @@ SPGISPEECH_S_CONFIG = types.DatasetConfig(
     transcript_field="transcript",
     audio_field="audio",
     splits=[
-        types.DatasetSplitConfig(name="train", num_samples=-1),
+        types.DatasetSplitConfig(name="train", num_samples=50000),
         types.DatasetSplitConfig(
-            name="validation", num_samples=-1, split=types.DatasetSplit.VALIDATION
+            name="validation", num_samples=1000, split=types.DatasetSplit.VALIDATION
         ),
-        types.DatasetSplitConfig(name="test", num_samples=-1),
+        types.DatasetSplitConfig(name="test", num_samples=1000),
     ],
 )
 
@@ -29,11 +29,11 @@ SPGISPEECH_M_CONFIG = types.DatasetConfig(
     transcript_field="transcript",
     audio_field="audio",
     splits=[
-        types.DatasetSplitConfig(name="train", num_samples=-1),
+        types.DatasetSplitConfig(name="train", num_samples=50000),
         types.DatasetSplitConfig(
-            name="validation", num_samples=-1, split=types.DatasetSplit.VALIDATION
+            name="validation", num_samples=1000, split=types.DatasetSplit.VALIDATION
         ),
-        types.DatasetSplitConfig(name="test", num_samples=-1),
+        types.DatasetSplitConfig(name="test", num_samples=1000),
     ],
 )
 
@@ -44,11 +44,11 @@ SPGISPEECH_L_CONFIG = types.DatasetConfig(
     transcript_field="transcript",
     audio_field="audio",
     splits=[
-        types.DatasetSplitConfig(name="train", num_samples=-1),
+        types.DatasetSplitConfig(name="train", num_samples=50000),
         types.DatasetSplitConfig(
-            name="validation", num_samples=-1, split=types.DatasetSplit.VALIDATION
+            name="validation", num_samples=1000, split=types.DatasetSplit.VALIDATION
         ),
-        types.DatasetSplitConfig(name="test", num_samples=-1),
+        types.DatasetSplitConfig(name="test", num_samples=1000),
     ],
 )
 
