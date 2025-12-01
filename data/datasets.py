@@ -108,6 +108,7 @@ class VoiceDataset(SizedIterableDataset):
             streaming=streaming,
             features=features,
             download_config=hf_datasets.DownloadConfig(max_retries=10),
+            trust_remote_code=True,
         )
         if audio_field is not None:
             dataset = dataset.cast_column(

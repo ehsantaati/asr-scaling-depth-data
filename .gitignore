@@ -184,4 +184,5 @@ cython_debug/
 
 outputs/*
 wandb/*
+exps/*
 
