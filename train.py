@@ -86,6 +86,9 @@ class TrainConfig:
     def get_val_sets(self) -> List[types.DatasetConfig]:
         return [types.DatasetConfig.from_dict(ds) for ds in self.val_sets]
 
+    def get_eval_sets(self) -> List[types.DatasetConfig]:
+        return [types.DatasetConfig.from_dict(ds) for ds in self.eval_sets]
+
 
 def prepare_dataset(
     data_opts: List[types.DatasetConfig],
@@ -417,17 +420,16 @@ def main():
             trainer.save_model()
             
             # 6. Run Inference
-            logging.info("Running post-training inference...")
-            # Use the validation dataset for inference (or a separate eval set if configured)
-            # Note: val_dataset is already a Dataproc wrapper, but run_inference expects raw samples
-            # So we use the underlying dataset or re-create it.
-            # Actually, val_dataset in main() is the raw dataset before Dataproc wrapper
-            # But wait, val_dataset was passed to WhisperDataproc.
-            # Let's use the raw val_dataset we created earlier.
+            logging.info("Running post-training inference on EVAL sets...")
+            
+            # Prepare evaluation dataset
+            eval_dataset = prepare_dataset(
+                config.get_eval_sets(), config.eval_dataset_args
+            )
             
             # Ensure model is on correct device
             device = trainer.args.device
-            metrics, predictions, references = run_inference(model, processor, val_dataset, device)
+            metrics, predictions, references = run_inference(model, processor, eval_dataset, device)
             
             # Save metrics
             import json
@@ -436,7 +438,16 @@ def main():
             
             # Log to WandB and TensorBoard
             if wandb.run is not None:
-                wandb.log({f"inference/{k}": v for k, v in metrics.items()})
+                # wandb.log({f"inference/{k}": v for k, v in metrics.items()})
+                
+                # Create a summary table for WER
+                # Construct dataset name from config
+                eval_dataset_names = [ds["name"] for ds in config.eval_sets]
+                eval_dataset_name = "+".join(eval_dataset_names) if eval_dataset_names else "evaluation"
+                
+                table = wandb.Table(columns=["Dataset", "WER"])
+                table.add_data(eval_dataset_name, metrics["wer"])
+                wandb.log({"inference/wer_summary": table})
             
             # For TensorBoard, we can use the trainer's callback if available, or just rely on WandB for custom metrics
             # But since the trainer loop is done, we might need manual logging.
