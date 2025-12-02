@@ -118,6 +118,30 @@ def prepare_dataset(
         
     return dataset
 
+    return dataset
+
+
+class WhisperDataproc(datasets.Dataproc):
+    def __init__(self, dataset, processor):
+        super().__init__(dataset)
+        self.processor = processor
+
+    def _process(self, sample):
+        # Process audio
+        audio = sample.audio
+        input_features = self.processor(
+            audio, sampling_rate=16000, return_tensors="np"
+        ).input_features[0]
+        
+        # Process text
+        labels = self.processor(text=sample.text).input_ids
+        
+        return {
+            "audio": {"array": input_features},
+            "text_input_ids": labels,
+            "reference": sample.text,
+        }
+
 
 def set_trainable_parameters(model: torch.nn.Module, target_modules: Optional[List[str]]) -> None:
     """
@@ -148,51 +172,67 @@ def run_inference(
     processor: WhisperProcessor,
     dataset: datasets.SizedIterableDataset,
     device: torch.device,
+    batch_size: int = 1,
 ) -> Tuple[Dict[str, float], List[str], List[str]]:
     """
     Runs inference on the dataset and computes WER.
     Returns metrics, predictions, and references.
     """
-    logging.info("Starting inference...")
+    logging.info(f"Starting inference with batch_size={batch_size}...")
     model.eval()
     metric = evaluate.load("wer")
     
     predictions = []
     references = []
     
-    # Iterate over dataset
-    # Note: This assumes dataset yields samples with 'audio' and 'text'
-    # We need to process them manually since we are not using the Trainer's loop
+    # Prepare dataset and dataloader
+    dataset_proc = WhisperDataproc(dataset, processor)
+    data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor)
+    
+    # Note: num_workers=0 is safer for iterable datasets sometimes, but >0 can help speed.
+    # Since we are using an IterableDataset, we can't use shuffle=True (already handled)
+    dataloader = torch.utils.data.DataLoader(
+        dataset_proc,
+        batch_size=batch_size,
+        collate_fn=data_collator,
+        num_workers=0, 
+    )
     
     from tqdm import tqdm
     
-    for i, sample in tqdm(enumerate(dataset), desc="Inference"):
-        # Process audio
-        audio = sample.audio
-        input_features = processor(
-            audio, sampling_rate=16000, return_tensors="pt"
-        ).input_features
-        input_features = input_features.to(device)
+    for i, batch in enumerate(tqdm(dataloader, desc="Inference")):
+        # Move inputs to device and cast to model's dtype
+        input_features = batch["input_features"].to(device, dtype=model.dtype)
         
         # Generate
         with torch.no_grad():
             generated_ids = model.generate(input_features)
         
         # Decode
-        transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        reference = sample.text
+        transcriptions = processor.batch_decode(generated_ids, skip_special_tokens=True)
         
+        # Get references
+        # If collator passed through 'references', use them.
+        # Otherwise decode labels (fallback)
+        if "references" in batch:
+            batch_references = batch["references"]
+        else:
+            # Fallback: decode labels (replace -100 with pad_token_id)
+            labels = batch["labels"]
+            labels[labels == -100] = processor.tokenizer.pad_token_id
+            batch_references = processor.batch_decode(labels, skip_special_tokens=True)
+
         # Normalization (simple lowercasing for now)
-        transcription = transcription.lower()
-        reference = reference.lower()
+        transcriptions = [t.lower() for t in transcriptions]
+        batch_references = [r.lower() for r in batch_references]
         
-        predictions.append(transcription)
-        references.append(reference)
+        predictions.extend(transcriptions)
+        references.extend(batch_references)
         
         if i < 3:
-            logging.info(f"Sample {i}:")
-            logging.info(f"  Ref: {reference}")
-            logging.info(f"  Pred: {transcription}")
+            logging.info(f"Batch {i} Sample 0:")
+            logging.info(f"  Ref: {batch_references[0]}")
+            logging.info(f"  Pred: {transcriptions[0]}")
 
     wer = metric.compute(predictions=predictions, references=references)
     logging.info(f"Final Inference WER: {wer}")
@@ -236,6 +276,11 @@ class DataCollatorSpeechSeq2SeqWithPadding:
             labels = labels[:, 1:]
 
         batch["labels"] = labels
+        
+        # Pass through references if present
+        if "reference" in features[0]:
+            batch["references"] = [feature["reference"] for feature in features]
+            
         return batch
 
 
@@ -271,24 +316,7 @@ def main():
         config.get_val_sets(), config.val_dataset_args
     )
     
-    # Wrap validation dataset with processing
-    class WhisperDataproc(datasets.Dataproc):
-        def _process(self, sample):
-            # Process audio
-            audio = sample.audio
-            input_features = processor(
-                audio, sampling_rate=16000, return_tensors="np"
-            ).input_features[0]
-            
-            # Process text
-            labels = processor(text=sample.text).input_ids
-            
-            return {
-                "audio": {"array": input_features},
-                "text_input_ids": labels,
-            }
-
-    val_dataset_proc = WhisperDataproc(val_dataset)
+    val_dataset_proc = WhisperDataproc(val_dataset, processor)
 
     # Determine total training samples from full dataset to calculate fractions
     # We need to instantiate the full train dataset once to get its length
@@ -374,7 +402,7 @@ def main():
                 total_partitions=total_partitions
             )
             
-            train_dataset_proc = WhisperDataproc(train_dataset)
+            train_dataset_proc = WhisperDataproc(train_dataset, processor)
 
             # 3. Setup Trainer
             run_name = f"frac_{fraction}_subset_{i}"
