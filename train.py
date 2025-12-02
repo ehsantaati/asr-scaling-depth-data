@@ -238,7 +238,15 @@ class DataCollatorSpeechSeq2SeqWithPadding:
 
 def main():
     load_dotenv()
-    logging.basicConfig(level=logging.INFO)
+    os.environ["WANDB_PROJECT"] = "asr-data-scaling"
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler("training.log"),
+            logging.StreamHandler()
+        ]
+    )
     
     # Register pre-defined datasets
     import data.configs
@@ -370,6 +378,7 @@ def main():
             output_dir = config.output_dir / run_name
             
             training_args = Seq2SeqTrainingArguments(
+                run_name=run_name,
                 output_dir=str(output_dir),
                 per_device_train_batch_size=config.batch_size,
                 gradient_accumulation_steps=config.grad_accum_steps,
