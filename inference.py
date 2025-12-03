@@ -16,7 +16,9 @@ from peft import PeftModel, PeftConfig
 # Add current directory to path to allow imports from train.py
 sys.path.append(str(Path(__file__).parent))
 
-from train import TrainConfig, prepare_dataset, run_inference, registry
+from train import TrainConfig
+from utils import prepare_dataset, run_inference
+from data import registry
 import data.configs
 
 def main():
