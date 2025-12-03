@@ -141,7 +141,11 @@ def main():
                     target_modules=config.lora_config.target_modules or config.target_modules
                 )
                 model = get_peft_model(model, peft_config)
-                model.print_trainable_parameters()
+                trainable_params, all_param = model.get_nb_trainable_parameters()
+                logging.info(
+                    f"trainable params: {trainable_params:,d} || all params: {all_param:,d} || trainable%: {100 * trainable_params / all_param:.4f}"
+                )
+
             else:
                 set_trainable_parameters(model, config.target_modules)
             
@@ -171,7 +175,9 @@ def main():
             train_dataset_proc = WhisperDataproc(train_dataset, processor)
 
             # 3. Setup Trainer
-            run_name = f"frac_{fraction}_subset_{i}"
+            # Extract experiment ID from output_dir (e.g. "outputs/002" -> "002")
+            exp_id = config.output_dir.name
+            run_name = f"{exp_id}_frac_{fraction}_subset_{i}"
             output_dir = config.output_dir / run_name
             
             training_args = Seq2SeqTrainingArguments(
