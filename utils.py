@@ -129,7 +129,7 @@ def run_inference(
 
     model.eval()
     metric = evaluate.load("wer")
-    normalizer = EnglishTextNormalizer()
+    normalizer = EnglishTextNormalizer({})
     
     predictions = []
     references = []
