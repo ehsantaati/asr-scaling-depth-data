@@ -20,6 +20,7 @@ from transformers import (
     WhisperForConditionalGeneration,
     WhisperProcessor,
 )
+from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 
 
 
@@ -186,6 +187,7 @@ def run_inference(
     logging.info(f"Starting inference with batch_size={batch_size}...")
     model.eval()
     metric = evaluate.load("wer")
+    normalizer = EnglishTextNormalizer()
     
     predictions = []
     references = []
@@ -227,9 +229,9 @@ def run_inference(
             labels[labels == -100] = processor.tokenizer.pad_token_id
             batch_references = processor.batch_decode(labels, skip_special_tokens=True)
 
-        # Normalization (simple lowercasing for now)
-        transcriptions = [t.lower() for t in transcriptions]
-        batch_references = [r.lower() for r in batch_references]
+        # Normalization using Whisper English Normalizer
+        transcriptions = [normalizer(t) for t in transcriptions]
+        batch_references = [normalizer(r) for r in batch_references]
         
         predictions.extend(transcriptions)
         references.extend(batch_references)
