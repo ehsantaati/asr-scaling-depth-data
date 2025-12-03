@@ -187,7 +187,7 @@ def run_inference(
     
     # Prepare dataset and dataloader
     dataset_proc = WhisperDataproc(dataset, processor)
-    data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor)
+    data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor, return_references=True)
     
     # Note: num_workers=0 is safer for iterable datasets sometimes, but >0 can help speed.
     # Since we are using an IterableDataset, we can't use shuffle=True (already handled)
@@ -241,8 +241,9 @@ def run_inference(
 
 
 class DataCollatorSpeechSeq2SeqWithPadding:
-    def __init__(self, processor):
+    def __init__(self, processor, return_references=False):
         self.processor = processor
+        self.return_references = return_references
 
     def __call__(
         self, features: List[Dict[str, Any]]
@@ -278,7 +279,7 @@ class DataCollatorSpeechSeq2SeqWithPadding:
         batch["labels"] = labels
         
         # Pass through references if present
-        if "reference" in features[0]:
+        if self.return_references and "reference" in features[0]:
             batch["references"] = [feature["reference"] for feature in features]
             
         return batch
@@ -418,7 +419,7 @@ def main():
                 max_steps=config.max_steps,
                 num_train_epochs=config.num_epochs,
                 fp16=config.fp16,
-                logging_steps=10,
+                logging_steps=25,
                 eval_strategy="steps" if config.do_eval else "no",
                 eval_steps=config.eval_steps,
                 save_strategy="no", # Save only at end to save space
