@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# ToDo: Add text normisation during wer calculation
 import dataclasses
 import logging
 import os
