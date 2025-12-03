@@ -63,7 +63,10 @@ def main():
     # 2. Determine Model and Output Paths
     if args.checkpoint_path:
         model_path = args.checkpoint_path
-        logging.info(f"Using checkpoint: {model_path}")
+        logging.info(f"Using checkpoint from CLI: {model_path}")
+    elif config.checkpoint_path:
+        model_path = config.checkpoint_path
+        logging.info(f"Using checkpoint from config: {model_path}")
     else:
         model_path = config.model_id
         logging.info(f"Using vanilla model: {model_path}")
@@ -86,13 +89,13 @@ def main():
     # Check if it's a PEFT model or full model
     # If checkpoint_path is a directory containing adapter_config.json, it's PEFT
     is_peft = False
-    if args.checkpoint_path and (Path(args.checkpoint_path) / "adapter_config.json").exists():
+    if model_path and (Path(model_path) / "adapter_config.json").exists():
         is_peft = True
         logging.info("Detected PEFT adapter checkpoint.")
         # Load base model first
         model = WhisperForConditionalGeneration.from_pretrained(config.model_id)
         # Load adapters
-        model = PeftModel.from_pretrained(model, args.checkpoint_path)
+        model = PeftModel.from_pretrained(model, model_path)
     else:
         model = WhisperForConditionalGeneration.from_pretrained(model_path)
 

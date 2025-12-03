@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# ToDo: Add text normisation during wer calculation
 import dataclasses
 import logging
 import os
@@ -38,6 +40,8 @@ class TrainConfig:
     model_id: str = "openai/whisper-tiny"
     language: str = "en"
     task: str = "transcribe"
+    # Path to a trained checkpoint to load for inference or continuation
+    checkpoint_path: Optional[str] = None
     # List of strings to match against parameter names. If None, all parameters are trainable.
     target_modules: Optional[List[str]] = None
     
@@ -69,6 +73,7 @@ class TrainConfig:
     output_dir: Path = Path("outputs")
     num_epochs: float = 3.0
     batch_size: int = 4
+    eval_batch_size: int = 8
     grad_accum_steps: int = 1
     learning_rate: float = 1e-5
     warmup_steps: int = 500
@@ -413,6 +418,7 @@ def main():
                 run_name=run_name,
                 output_dir=str(output_dir),
                 per_device_train_batch_size=config.batch_size,
+                per_device_eval_batch_size=config.eval_batch_size,
                 gradient_accumulation_steps=config.grad_accum_steps,
                 learning_rate=config.learning_rate,
                 warmup_steps=config.warmup_steps,
@@ -458,7 +464,7 @@ def main():
             
             # Ensure model is on correct device
             device = trainer.args.device
-            metrics, predictions, references = run_inference(model, processor, eval_dataset, device)
+            metrics, predictions, references = run_inference(model, processor, eval_dataset, device, batch_size=config.eval_batch_size)
             
             # Save metrics
             import json
