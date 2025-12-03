@@ -111,12 +111,22 @@ def run_inference(
     dataset: datasets.SizedIterableDataset,
     device: torch.device,
     batch_size: int = 1,
+    language: Optional[str] = None,
+    task: Optional[str] = None,
 ) -> Tuple[Dict[str, float], List[str], List[str]]:
     """
     Runs inference on the dataset and computes WER.
     Returns metrics, predictions, and references.
     """
     logging.info(f"Starting inference with batch_size={batch_size}...")
+    
+    # Force language and task if provided
+    if language:
+        model.generation_config.language = language
+    if task:
+        model.generation_config.task = task
+    model.generation_config.forced_decoder_ids = None
+
     model.eval()
     metric = evaluate.load("wer")
     normalizer = EnglishTextNormalizer()

@@ -115,7 +115,15 @@ def main():
     )
 
     # 5. Run Inference
-    metrics, predictions, references = run_inference(model, processor, eval_dataset, device, batch_size=batch_size)
+    metrics, predictions, references = run_inference(
+        model, 
+        processor, 
+        eval_dataset, 
+        device, 
+        batch_size=batch_size,
+        language=config.language,
+        task=config.task
+    )
 
     # 6. Save Results
     results = {

@@ -112,8 +112,8 @@ def main():
             model = WhisperForConditionalGeneration.from_pretrained(
                 config.model_id
             )
-            model.config.forced_decoder_ids = None
-            model.config.suppress_tokens = []
+            model.generation_config.forced_decoder_ids = None
+            model.generation_config.suppress_tokens = []
 
             # Untie embeddings and reinitialize output weights
             if model.config.tie_word_embeddings:
@@ -224,7 +224,15 @@ def main():
             
             # Ensure model is on correct device
             device = trainer.args.device
-            metrics, predictions, references = run_inference(model, processor, eval_dataset, device, batch_size=config.eval_batch_size)
+            metrics, predictions, references = run_inference(
+                model, 
+                processor, 
+                eval_dataset, 
+                device, 
+                batch_size=config.eval_batch_size,
+                language=config.language,
+                task=config.task
+            )
             
             # Save metrics
             import json
