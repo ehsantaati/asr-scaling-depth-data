@@ -16,7 +16,7 @@ from peft import PeftModel, PeftConfig
 # Add current directory to path to allow imports from train.py
 sys.path.append(str(Path(__file__).parent))
 
-from train import TrainConfig
+from configs import InferenceConfig
 from utils import prepare_dataset, run_inference
 from data import registry
 import data.configs
@@ -41,22 +41,23 @@ def main():
 
     # 1. Load Configuration
     logging.info(f"Loading config from {args.config_path}")
-    # We use simple_parsing to load the yaml into the TrainConfig dataclass
+    # We use simple_parsing to load the yaml into the InferenceConfig dataclass
     try:
-        config = simple_parsing.load(TrainConfig, args.config_path)
+        config = simple_parsing.load(InferenceConfig, args.config_path)
     except AttributeError:
         # Fallback if simple_parsing.load is not directly available (older versions)
         import yaml
         with open(args.config_path, 'r') as f:
             config_dict = yaml.safe_load(f)
         from simple_parsing.helpers.serialization import load_yaml
-        config = load_yaml(TrainConfig, Path(args.config_path))
+        config = load_yaml(InferenceConfig, Path(args.config_path))
 
     # Determine batch size
     if args.batch_size is not None:
         batch_size = args.batch_size
     else:
-        batch_size = config.batch_size if hasattr(config, "batch_size") else 1
+        # Use eval_batch_size from BaseConfig as default for inference
+        batch_size = config.eval_batch_size if hasattr(config, "eval_batch_size") else 1
     logging.info(f"Using batch size: {batch_size}")
 
     # Register datasets

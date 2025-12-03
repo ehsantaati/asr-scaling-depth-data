@@ -22,80 +22,8 @@ from transformers import (
 )
 
 from utils import *
-
 from data import datasets, registry, types, partitioning
-
-
-@dataclasses.dataclass
-class LoraConfigArgs:
-    r: int = 8
-    lora_alpha: int = 32
-    lora_dropout: float = 0.1
-    target_modules: Optional[List[str]] = None
-
-
-@dataclasses.dataclass
-class TrainConfig:
-    # Model parameters
-    model_id: str = "openai/whisper-tiny"
-    language: str = "en"
-    task: str = "transcribe"
-    # Path to a trained checkpoint to load for inference or continuation
-    checkpoint_path: Optional[str] = None
-    # List of strings to match against parameter names. If None, all parameters are trainable.
-    target_modules: Optional[List[str]] = None
-    
-    # LoRA Configuration
-    lora_config: Optional[LoraConfigArgs] = None
-
-    # Data parameters
-    train_sets: List[Dict[str, Any]] = simple_parsing.list_field()
-    val_sets: List[Dict[str, Any]] = simple_parsing.list_field()
-    eval_sets: List[Dict[str, Any]] = simple_parsing.list_field()
-
-    train_dataset_args: types.TrainDatasetArgs = simple_parsing.field(
-        default_factory=types.TrainDatasetArgs
-    )
-    val_dataset_args: types.ValDatasetArgs = simple_parsing.field(
-        default_factory=types.ValDatasetArgs
-    )
-    eval_dataset_args: types.EvalDatasetArgs = simple_parsing.field(
-        default_factory=types.EvalDatasetArgs
-    )
-
-    # Scaling parameters
-    # List of fractions to train on, e.g. [0.1, 0.5, 1.0]
-    data_fractions: List[float] = simple_parsing.list_field(1.0)
-    # Number of random subsets to train for each fraction
-    num_subsets: int = 1
-
-    # Training parameters
-    output_dir: Path = Path("outputs")
-    num_epochs: float = 3.0
-    batch_size: int = 4
-    eval_batch_size: int = 8
-    grad_accum_steps: int = 1
-    learning_rate: float = 1e-5
-    warmup_steps: int = 500
-    max_steps: int = 0  # if > 0, overrides num_epochs
-    fp16: bool = True
-    seed: int = 42
-
-    # Evaluation
-    do_eval: bool = True
-    eval_steps: int = 1000
-
-    def get_train_sets(self) -> List[types.DatasetConfig]:
-        return [types.DatasetConfig.from_dict(ds) for ds in self.train_sets]
-
-    def get_val_sets(self) -> List[types.DatasetConfig]:
-        return [types.DatasetConfig.from_dict(ds) for ds in self.val_sets]
-
-    def get_eval_sets(self) -> List[types.DatasetConfig]:
-        return [types.DatasetConfig.from_dict(ds) for ds in self.eval_sets]
-
-
-
+from configs import BaseConfig, TrainConfig, LoraConfigArgs
 
 
 def set_trainable_parameters(model: torch.nn.Module, target_modules: Optional[List[str]]) -> None:
@@ -120,8 +48,6 @@ def set_trainable_parameters(model: torch.nn.Module, target_modules: Optional[Li
             
     logging.info(f"Set trainability based on target_modules: {target_modules}")
     logging.info(f"Trainable params: {trainable_params} / {all_params} ({trainable_params/all_params:.2%})")
-
-
 
 
 
