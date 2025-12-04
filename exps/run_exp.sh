@@ -14,4 +14,4 @@ if [ -z "$CONFIG_FILE" ]; then
 fi
 
 echo "Running experiment $ID with config $CONFIG_FILE"
-poetry run python train.py --config_path "$CONFIG_FILE"
+CUDA_VISIBLE_DEVICES=0 poetry run python train.py --config_path "$CONFIG_FILE"
