@@ -1,0 +1,13 @@
+model_id: "openai/whisper-medium"
+language: "en"
+task: "transcribe"
+checkpoint_path: "outputs/spgispeech_projout/frac_1.0_subset_0"
+
+eval_sets:
+  - name: "spgispeech-s"
+
+batch_size: 64
+
+fp16: true
+
+output_dir: "outputs/spgispeech-s_m-infer_projout_2"

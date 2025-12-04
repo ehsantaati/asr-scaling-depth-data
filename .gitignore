@@ -184,10 +184,6 @@ cython_debug/
 
 outputs/*
 wandb/*
-exps/*
-!exps/experiments.md
-!exps/run_exp.sh
-!exps/run_inf.sh
 
 .vscode/*
 
