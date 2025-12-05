@@ -269,6 +269,10 @@ def main():
                 tb_writer.add_scalar(f"inference/{k}", v, global_step=trainer.state.global_step)
             tb_writer.close()
 
+            # Finish WandB run to ensure next iteration starts a new one
+            if wandb.run is not None:
+                wandb.finish()
+
             # Cleanup
             del model
             del trainer
