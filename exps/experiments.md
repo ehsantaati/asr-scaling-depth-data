@@ -4,10 +4,11 @@
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | 000 | `000_inference.yaml` | Inference | Base Model | - | 0 |13.23|
 | 001 | `001_tr_s_1.yaml` | Standard | `['proj_out']` | `1.0`| 6.50 |3.124|
-| 002 | `002_tr_l_1.yaml` | LoRA | `['proj_out']` | `1.0` | 0.052 |5.043|
+| 002 | `002_tr_l_1.yaml` | LoRA(r8) | `['proj_out']` | `1.0` | 0.052 |5.043|
 | 003 | `003_tr_s_1.yaml` | Standard | ```['proj_out', 'decoder.layer_norm', 'decoder.layers.11']``` | `1.0`| 8.56 |2.648|
-| 004 | `004_tr_l_1.yaml` | LoRA | ```['proj_out', 'decoder.layers.11.self_attn.(k_proj & v_proj & q_proj & out_proj)', 'decoder.layers.11.(fc1 & fc2)']``` | `1.0`| 0.067 |3.013|
-| 005 | `005_tr_s_02.yaml` | Standard | `['proj_out']` | `0.20`| 6.50 |-|
+| 004 | `004_tr_l_1.yaml` | LoRA(r8) | ```['proj_out', 'decoder.layers.11.self_attn.(k_proj & v_proj & q_proj & out_proj)', 'decoder.layers.11.(fc1 & fc2)']``` | `1.0`| 0.067 |3.013|
+| 005 | `005_tr_s_02.yaml` | Standard | `['proj_out']` | `0.20`| 6.50 |3.422|
+| 006 | `006_tr_l_1.yaml` | LoRA(r16) | `['proj_out', 'decoder.layers.11.self_attn.(k_proj & v_proj & q_proj & out_proj)', 'decoder.layers.11.(fc1 & fc2)']` | `1.0`| 0.1395 ||
 > [!NOTE]
 > To execute the experiments, run the following commands:
 > ```bash
