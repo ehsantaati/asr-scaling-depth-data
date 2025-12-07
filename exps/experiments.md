@@ -9,7 +9,9 @@
 | 004 | `004_tr_l_1.yaml` | LoRA(r8) | ```['proj_out', 'decoder.layers.11.self_attn.(k_proj & v_proj & q_proj & out_proj)', 'decoder.layers.11.(fc1 & fc2)']``` | `1.0`| 0.067 |3.013|
 | 005 | `005_tr_s_02.yaml` | Standard | `['proj_out']` | `0.20`| 6.50 |3.422|
 | 006 | `006_tr_l_1.yaml` | LoRA(r16) | `['proj_out', 'decoder.layers.11.self_attn.(k_proj & v_proj & q_proj & out_proj)', 'decoder.layers.11.(fc1 & fc2)']` | `1.0`| 0.1395 |3.018|
-| 007 | `007_tr_l_1.yaml` | LoRA(r32) | `['proj_out']` | `1.0`| 0.2067 |-|
+| 007 | `007_tr_l_1.yaml` | LoRA(r32) | `['proj_out']` | `1.0`| 0.2067 |3.888|
+| 008 | `008_tr_l_1.yaml` | LoRA(r16) | `['proj_out']` | `1.0`| 0.1035|3.335|
+| 009 | `009_tr_l_1.yaml` | LoRA(r64) | `['proj_out']` | `1.0`| - |-|
 > [!NOTE]
 > To execute the experiments, run the following commands:
 > ```bash
