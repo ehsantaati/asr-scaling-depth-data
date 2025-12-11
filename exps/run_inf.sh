@@ -1,7 +1,9 @@
 #!/bin/bash
 ID=$1
+DEVICE=${2:-0}
+
 if [ -z "$ID" ]; then
-  echo "Usage: $0 <experiment_id>"
+  echo "Usage: $0 <experiment_id> [device_id]"
   exit 1
 fi
 
@@ -13,5 +15,5 @@ if [ -z "$CONFIG_FILE" ]; then
   exit 1
 fi
 
-echo "Running inference experiment $ID with config $CONFIG_FILE"
-poetry run python inference.py --config_path "$CONFIG_FILE"
+echo "Running inference experiment $ID with config $CONFIG_FILE on device $DEVICE"
+CUDA_VISIBLE_DEVICES=$DEVICE poetry run python inference.py --config_path "$CONFIG_FILE"

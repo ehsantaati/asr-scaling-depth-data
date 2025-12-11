@@ -4,19 +4,23 @@ language: "en"
 task: "transcribe"
 
 train_sets:
-  - name: "spgispeech-s"
+  - name: "spgispeech_2"
+
+train_dataset_args:
+  max_audio_duration_secs: 30
 
 val_sets:
-  - name: "spgispeech-s"
+  - name: "spgispeech_2"
+
+val_dataset_args:
+  max_audio_duration_secs: 30
 
 eval_sets:
-  - name: "spgispeech-s"
+  - name: "spgispeech_2"
 
-# eval_dataset_args:
-#   max_samples: 2
+eval_dataset_args:
+  max_samples: -1
 
-# val_dataset_args:
-#   max_samples: 2
 # Data scaling
 data_fractions: [1.0]
 num_subsets: 1
@@ -24,7 +28,7 @@ num_subsets: 1
 target_modules:
   - "proj_out"
 # Training
-output_dir: "outputs/spgispeech_projout"
+output_dir: "outputs/001_spgis_2"
 max_steps: 5000 
 batch_size: 16
 grad_accum_steps: 1
@@ -36,6 +40,4 @@ seed: 42
 # Evaluation
 do_eval: true
 eval_steps: 1000
-eval_batch_size: 16
-# LoRA (optional, disable for this test)
-# lora_config: ...
+eval_batch_size: 32

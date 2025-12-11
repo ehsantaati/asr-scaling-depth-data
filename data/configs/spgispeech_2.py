@@ -5,7 +5,7 @@ SPGISPEECH_2_CONFIG = types.DatasetConfig(
     path="/mnt/asr-data-scaling/data/local_datasets/spgispeech_2",
     transcript_field="transcript",
     audio_field="audio",
-    streaming=True,
+    streaming=False,
     splits=[
         types.DatasetSplitConfig(name="train", num_samples=156753),
         types.DatasetSplitConfig(

@@ -110,20 +110,114 @@ def main():
     
     # 4. Prepare Evaluation Datasets
     logging.info("Preparing evaluation datasets...")
-    eval_dataset = prepare_dataset(
-        config.get_eval_sets(), config.eval_dataset_args
-    )
+    # Get raw dataset items (no dataloaders yet)
+    data_opts = config.get_eval_sets()
+    data_args = config.eval_dataset_args
+    # Manually load dataset as iterable
+    data_sets = []
+    for ds_config in data_opts:
+        if ds_config.name not in registry.DATASET_MAP:
+             registry.register_datasets([ds_config])
+        ds = registry.create_dataset(ds_config.name, data_args, verbose=True)
+        data_sets.append(ds)
+    
+    if len(data_sets) > 1:
+        eval_dataset = data.datasets.InterleaveDataset(data_sets)
+    else:
+        eval_dataset = data_sets[0]
+        
+    if config.eval_dataset_args.max_samples != -1:
+        eval_dataset = data.datasets.Range(eval_dataset, config.eval_dataset_args.max_samples)
 
-    # 5. Run Inference
-    metrics, predictions, references = run_inference(
-        model, 
-        processor, 
-        eval_dataset, 
-        device, 
+
+    # 5. Run Inference with Pipeline
+    from transformers import pipeline
+    from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
+    import evaluate
+    from tqdm import tqdm
+
+    logging.info(f"Starting inference with pipeline (chunk_length_s=30) and batch_size={batch_size}...")
+
+    # Initialize pipeline
+    # Note: 'device' argument for pipeline expects int (e.g., 0) or str (e.g., "cuda:0") or device object
+    # If model is already on device, we might not need to pass device, but pipeline is safer with it.
+    
+    pipe = pipeline(
+        "automatic-speech-recognition",
+        model=model,
+        tokenizer=processor.tokenizer,
+        feature_extractor=processor.feature_extractor,
+        chunk_length_s=30,
+        device=device,
         batch_size=batch_size,
-        language=config.language,
-        task=config.task
+        ignore_warning=True,
+        num_workers=1,
     )
+    
+    # We need to iterate the dataset and feed it to the pipeline.
+    # The pipeline accepts an iterator of dicts with "audio" key (containing array/sampling_rate) or path.
+    # Our dataset yields VoiceSample objects which have .audio (numpy array) and .text (str).
+    
+    def data_generator(dataset):
+        for sample in dataset:
+            # Pipeline expects dict with "raw" audio or "array" and "sampling_rate"
+            yield {
+                "raw": sample.audio, 
+                "sampling_rate": sample.sample_rate
+            }
+
+    # Collect references separately since generator is consumed
+    references = []
+    # We'll need a way to correspond predictions to references. 
+    # The pipeline is an iterator, so we can iterate both.
+    # But pipeline(generator) yields results in order.
+    
+    # Let's iterate dataset once to yield to pipeline AND store reference.
+    # NOTE: This assumes sequential execution. If pipeline is async/multithreaded prefetching, 
+    # we must ensure order is preserved. HF pipeline preserves order.
+    
+    # Better approach:
+    # Create a list of references as we yield to the pipeline? 
+    # No, we can't yield and append to list in the same generator easily if pipeline consumes it eagerly.
+    # But we can wrap the generator.
+
+    # Collect references first to avoid multiprocessing side-effect issues
+    logging.info("Collecting references...")
+    references = []
+    # Since we might be using a Range dataset or just want to be safe, let's just collect them.
+    # If the dataset is huge and streaming, this doubles the I/O cost, but it guarantees correctness.
+    # For cached datasets (streaming=False), this is instant.
+    dataset_audios = []
+    for sample in eval_dataset:
+        references.append(sample.text)
+        # We can also pre-collect audios if memory permits, but that might be OOM for large sets.
+        # Generating a lightweight iterable for the pipeline is better.
+
+    def input_generator():
+        for sample in eval_dataset:
+            yield {"raw": sample.audio, "sampling_rate": sample.sample_rate}
+
+    generated_text = []
+
+    # Run pipeline
+    # We iterate over the output of the pipeline
+    # Generate_kwargs can be used to pass language if needed, e.g. generate_kwargs={"language": "en"}
+    # Note: len(eval_dataset) might be slow if not cached, but for Range/GenericDataset it should be O(1)
+    total_samples = len(eval_dataset)
+    for out in tqdm(pipe(input_generator(), return_timestamps=False, batch_size=batch_size, generate_kwargs={"language": "en"}), total=total_samples, desc="Inference"):
+        generated_text.append(out["text"])
+
+    # Normalization
+    normalizer = EnglishTextNormalizer({})
+    predictions = [normalizer(t) for t in generated_text]
+    references = [normalizer(r) for r in references]
+    
+    # Compute metrics
+    metric = evaluate.load("wer")
+    wer = metric.compute(predictions=predictions, references=references)
+    metrics = {"wer": wer}
+    
+    logging.info(f"Final Inference WER: {wer}")
 
     # 6. Save Results
     results = {
