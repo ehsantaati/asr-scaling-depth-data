@@ -127,17 +127,32 @@ class VoiceDataset(SizedIterableDataset):
 
 
     def __iter__(self):
-        num_workers, _, _ = _get_worker_info(self._length)
-        if num_workers > 1:
-            if not hasattr(self._dataset, "n_shards"):
-                 logging.warning(f"{self._name} does not have n_shards attribute. Assuming custom sharding in builder.")
-            elif self._dataset.n_shards < num_workers:
-                 logging.warning(f"{self._name} has {self._dataset.n_shards} shards, which is less than the number of workers ({num_workers}).")
+        num_workers, worker_id, worker_samples = _get_worker_info(self._length)
+        
+        dataset_iter = None
+        # Handle sharding for map-style datasets (streaming=False)
+        if num_workers > 1 and isinstance(self._dataset, hf_datasets.Dataset):
+            # Calculate start/end indices for this worker
+            base_chunk = self._length // num_workers
+            remainder = self._length % num_workers
+            start_idx = worker_id * base_chunk + min(worker_id, remainder)
+            end_idx = start_idx + worker_samples
+            
+            # Create a subset for this worker
+            # We use select() to get a slice of the dataset while preserving features
+            dataset_shard = self._dataset.select(range(start_idx, end_idx))
+            dataset_iter = iter(dataset_shard)
+        else:
+            if num_workers > 1:
+                if not hasattr(self._dataset, "n_shards"):
+                     logging.warning(f"{self._name} does not have n_shards attribute. Assuming custom sharding in builder.")
+                elif self._dataset.n_shards < num_workers:
+                     logging.warning(f"{self._name} has {self._dataset.n_shards} shards, which is less than the number of workers ({num_workers}).")
+            dataset_iter = iter(self._dataset)
 
         actual_length = 0
         skipped_samples = 0
         bad_samples = 0
-        dataset_iter = iter(self._dataset)
         for row in dataset_iter:
             actual_length += 1
             sample = self._get_sample(row)

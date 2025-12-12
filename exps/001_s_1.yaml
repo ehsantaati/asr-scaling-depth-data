@@ -1,4 +1,4 @@
-# Fine-tuning config 
+# Fine-tuning config
 model_id: "openai/whisper-medium"
 language: "en"
 task: "transcribe"
@@ -14,6 +14,7 @@ val_sets:
 
 val_dataset_args:
   max_audio_duration_secs: 30
+  max_samples: -1
 
 eval_sets:
   - name: "spgispeech_2"
@@ -29,14 +30,15 @@ target_modules:
   - "proj_out"
 # Training
 output_dir: "outputs/001_spgis_2"
-max_steps: 5000 
+max_steps: 5000 # 10_000 to count 1 epoch
 batch_size: 16
 grad_accum_steps: 1
 learning_rate: 1e-5
 warmup_steps: 500
 fp16: true
 seed: 42
-
+dataloader_num_workers: 8
 # Evaluation
 do_eval: true
 eval_steps: 1000
+eval_batch_size: 16

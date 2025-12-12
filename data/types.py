@@ -27,22 +27,12 @@ class VoiceDatasetArgs:
     """Seed for shuffling the dataset."""
     shuffle_buffer_size: int = 1000
     """Buffer size for shuffling the dataset. Only used for streaming datasets."""
-    max_audio_duration_secs: float = 16
+    max_audio_duration_secs: float = 30
     """Whether to skip samples with audio longer than this duration. -1 means no filtering"""
     max_input_characters: Optional[int] = 2200
     """Used for direct messages input. Skips samples with input characters longer than this value."""
     max_samples: int = -1
     """max number of samples to use per dataset"""
-    ignore_message_history: bool = False
-    """Whether to ignore the message history in the dataset."""
-    ignore_system_prompt: bool = False
-    """Whether to ignore the system prompt in the dataset."""
-    language_aware_user_prompts: bool = True
-    """Whether to use language-aware user prompts."""
-    use_random_asr_prompts: bool = True
-    """Whether to use random ASR prompts (from asr_instructions.json) in templates that request them."""
-    asr_prompts_path: Optional[str] = None
-    """Optional path to a custom asr_instructions.json file to use for random ASR prompts."""
 
     def __post_init__(self):
         if isinstance(self.split, str):
