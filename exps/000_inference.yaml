@@ -1,16 +1,15 @@
 model_id: "openai/whisper-medium"
 language: "en"
 task: "transcribe"
-# checkpoint_path: "outputs/spgispeech_projout/frac_1.0_subset_0"
 
 eval_sets:
   - name: "spgispeech_2"
 
-eval_batch_size: 16
+eval_batch_size: 32
 
 eval_dataset_args:
-  max_samples: 30
+  max_samples: -1
 
 fp16: true
 
-output_dir: "outputs/spgispeech-2_m"
+output_dir: "outputs/spgispeech-2_m_vanilla"
