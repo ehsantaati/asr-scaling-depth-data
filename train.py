@@ -185,6 +185,7 @@ def main():
                 output_dir=str(output_dir),
                 per_device_train_batch_size=config.batch_size,
                 per_device_eval_batch_size=config.eval_batch_size,
+                dataloader_num_workers=config.dataloader_num_workers,
                 gradient_accumulation_steps=config.grad_accum_steps,
                 learning_rate=config.learning_rate,
                 warmup_steps=config.warmup_steps,

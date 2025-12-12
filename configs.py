@@ -71,6 +71,7 @@ class TrainConfig(BaseConfig):
     # Training parameters
     num_epochs: float = 3.0
     batch_size: int = 4
+    dataloader_num_workers: int = 4
     grad_accum_steps: int = 1
     learning_rate: float = 1e-5
     warmup_steps: int = 500

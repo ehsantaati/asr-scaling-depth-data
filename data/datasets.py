@@ -129,12 +129,10 @@ class VoiceDataset(SizedIterableDataset):
     def __iter__(self):
         num_workers, _, _ = _get_worker_info(self._length)
         if num_workers > 1:
-            assert hasattr(
-                self._dataset, "n_shards"
-            ), f"{self._name} does not have n_shards attribute, which is required when num_workers ({num_workers}) > 1"
-            assert (
-                self._dataset.n_shards >= num_workers
-            ), f"{self._name} has {self._dataset.n_shards} shards, which is less than the number of workers ({num_workers})."
+            if not hasattr(self._dataset, "n_shards"):
+                 logging.warning(f"{self._name} does not have n_shards attribute. Assuming custom sharding in builder.")
+            elif self._dataset.n_shards < num_workers:
+                 logging.warning(f"{self._name} has {self._dataset.n_shards} shards, which is less than the number of workers ({num_workers}).")
 
         actual_length = 0
         skipped_samples = 0
