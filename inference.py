@@ -131,11 +131,78 @@ def main():
 
 
     # 5. Run Inference with Pipeline
+    metrics, predictions, references = run_inference_pipeline(
+        model,
+        processor,
+        eval_dataset,
+        device,
+        batch_size=batch_size,
+        language=config.language
+    )
+    
+    
+    # 6. Save Results
+    save_inference_results(
+        output_dir,
+        metrics,
+        predictions,
+        references,
+        model_path,
+        is_peft,
+        args.config_path
+    )
+
+
+def save_inference_results(
+    output_dir,
+    metrics,
+    predictions,
+    references,
+    model_path,
+    is_peft=False,
+    config_path=None
+):
+    import json
+    import logging
+    
+    # Ensure output_dir is Path
+    output_dir = Path(output_dir)
+    
+    results = {
+        "model_path": str(model_path),
+        "is_peft": is_peft,
+        "metrics": metrics,
+        "config_path": str(config_path) if config_path else None
+    }
+    
+    results_file = output_dir / "results.json"
+    with open(results_file, "w") as f:
+        json.dump(results, f, indent=2)
+        
+    logging.info(f"Saved results to {results_file}")
+    if "wer" in metrics:
+        logging.info(f"WER: {metrics['wer']}")
+
+    # Also save predictions for inspection
+    predictions_file = output_dir / "predictions.json"
+    with open(predictions_file, "w") as f:
+        json.dump({"predictions": predictions, "references": references}, f, indent=2)
+    logging.info(f"Saved predictions to {predictions_file}")
+
+
+def run_inference_pipeline(
+    model,
+    processor,
+    dataset,
+    device,
+    batch_size=1,
+    language="en",
+):
     from transformers import pipeline
     from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
     import evaluate
     from tqdm import tqdm
-
+    
     logging.info(f"Starting inference with pipeline (chunk_length_s=30) and batch_size={batch_size}...")
 
     # Initialize pipeline
@@ -150,34 +217,27 @@ def main():
         ignore_warning=True,
         num_workers=1,
     )
-    
-    def data_generator(dataset):
-        for sample in dataset:
-            # Pipeline expects dict with "raw" audio or "array" and "sampling_rate"
-            yield {
-                "raw": sample.audio, 
-                "sampling_rate": sample.sample_rate
-            }
-
-    # Collect references separately since generator is consumed
-    references = []
 
     # Collect references first to avoid multiprocessing side-effect issues
     logging.info("Collecting references...")
     references = []
-    dataset_audios = []
-    for sample in eval_dataset:
+    for sample in dataset:
         references.append(sample.text)
 
     def input_generator():
-        for sample in eval_dataset:
-            yield {"raw": sample.audio, "sampling_rate": sample.sample_rate}
+        for sample in dataset:
+             yield {"raw": sample.audio, "sampling_rate": sample.sample_rate}
 
     generated_text = []
 
     # Run pipeline
-    total_samples = len(eval_dataset)
-    for out in tqdm(pipe(input_generator(), return_timestamps=False, batch_size=batch_size, generate_kwargs={"language": "en"}), total=total_samples, desc="Inference"):
+    # Note: len(dataset) works for mapped datasets and SizedIterableDataset, but not generic IterableDataset.
+    try:
+        total_samples = len(dataset)
+    except TypeError:
+        total_samples = None
+        
+    for out in tqdm(pipe(input_generator(), return_timestamps=False, batch_size=batch_size, generate_kwargs={"language": language}), total=total_samples, desc="Inference"):
         generated_text.append(out["text"])
 
     # Normalization
@@ -188,30 +248,9 @@ def main():
     # Compute metrics
     metric = evaluate.load("wer")
     wer = metric.compute(predictions=predictions, references=references)
-    metrics = {"wer": wer}
-    
     logging.info(f"Final Inference WER: {wer}")
 
-    # 6. Save Results
-    results = {
-        "model_path": model_path,
-        "is_peft": is_peft,
-        "metrics": metrics,
-        "config_path": args.config_path
-    }
-    
-    results_file = output_dir / "results.json"
-    with open(results_file, "w") as f:
-        json.dump(results, f, indent=2)
-        
-    logging.info(f"Saved results to {results_file}")
-    logging.info(f"WER: {metrics['wer']}")
-
-    # Also save predictions for inspection
-    predictions_file = output_dir / "predictions.json"
-    with open(predictions_file, "w") as f:
-        json.dump({"predictions": predictions, "references": references}, f, indent=2)
-    logging.info(f"Saved predictions to {predictions_file}")
+    return {"wer": wer}, predictions, references
 
 if __name__ == "__main__":
     main()

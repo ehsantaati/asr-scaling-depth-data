@@ -20,7 +20,8 @@ from transformers import (
     WhisperProcessor,
 )
 
-from utils import *
+from utils import prepare_dataset, DataCollatorSpeechSeq2SeqWithPadding, WhisperDataproc
+from inference import run_inference_pipeline, save_inference_results
 from data import datasets, registry, types, partitioning
 from configs import BaseConfig, TrainConfig, LoraConfigArgs
 
@@ -231,20 +232,24 @@ def main():
             
             # Ensure model is on correct device
             device = trainer.args.device
-            metrics, predictions, references = run_inference(
+            metrics, predictions, references = run_inference_pipeline(
                 model, 
                 processor, 
                 eval_dataset, 
                 device, 
                 batch_size=config.eval_batch_size,
-                language=config.language,
-                task=config.task
+                language=config.language
             )
             
-            # Save metrics
-            import json
-            with open(output_dir / "inference_metrics.json", "w") as f:
-                json.dump(metrics, f, indent=2)
+            # Save metrics and predictions using the shared function
+            save_inference_results(
+                output_dir,
+                metrics,
+                predictions,
+                references,
+                model_path=output_dir, # In train.py, the model is in the output_dir
+                is_peft=(config.lora_config is not None)
+            )
             
             # Log to WandB and TensorBoard
             if wandb.run is not None:

@@ -40,4 +40,3 @@ seed: 42
 # Evaluation
 do_eval: true
 eval_steps: 1000
-eval_batch_size: 32

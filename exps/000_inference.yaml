@@ -9,7 +9,7 @@ eval_sets:
 eval_batch_size: 32
 
 eval_dataset_args:
-  max_samples: -1
+  max_samples: 30
 
 fp16: true
 
