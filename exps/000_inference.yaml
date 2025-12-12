@@ -6,7 +6,7 @@ task: "transcribe"
 eval_sets:
   - name: "spgispeech_2"
 
-eval_batch_size: 32
+eval_batch_size: 16
 
 eval_dataset_args:
   max_samples: 30

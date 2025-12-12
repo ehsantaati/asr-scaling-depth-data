@@ -219,10 +219,7 @@ def main():
 
             trainer.train()
             
-            # 5. Save Final Model
-            trainer.save_model()
-            
-            # 6. Run Inference
+            # 5. Run Inference
             logging.info("Running post-training inference on EVAL sets...")
             
             # Prepare evaluation dataset
@@ -240,6 +237,14 @@ def main():
                 batch_size=config.eval_batch_size,
                 language=config.language
             )
+
+            # 6. Merge and Save Final Model
+            if config.lora_config is not None:
+                logging.info("Merging LoRA adapters into base model before saving...")
+                model = model.merge_and_unload()
+                trainer.model = model
+
+            trainer.save_model()
             
             # Save metrics and predictions using the shared function
             save_inference_results(
@@ -248,7 +253,6 @@ def main():
                 predictions,
                 references,
                 model_path=output_dir, # In train.py, the model is in the output_dir
-                is_peft=(config.lora_config is not None)
             )
             
             # Log to WandB and TensorBoard

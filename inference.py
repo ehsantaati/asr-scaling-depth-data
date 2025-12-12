@@ -17,7 +17,7 @@ from peft import PeftModel, PeftConfig
 sys.path.append(str(Path(__file__).parent))
 
 from configs import InferenceConfig
-from utils import prepare_dataset, run_inference
+from utils import prepare_dataset
 from data import registry
 import data.configs
 
@@ -110,24 +110,9 @@ def main():
     
     # 4. Prepare Evaluation Datasets
     logging.info("Preparing evaluation datasets...")
-    # Get raw dataset items (no dataloaders yet)
-    data_opts = config.get_eval_sets()
-    data_args = config.eval_dataset_args
-    # Manually load dataset as iterable
-    data_sets = []
-    for ds_config in data_opts:
-        if ds_config.name not in registry.DATASET_MAP:
-             registry.register_datasets([ds_config])
-        ds = registry.create_dataset(ds_config.name, data_args, verbose=True)
-        data_sets.append(ds)
-    
-    if len(data_sets) > 1:
-        eval_dataset = data.datasets.InterleaveDataset(data_sets)
-    else:
-        eval_dataset = data_sets[0]
-        
-    if config.eval_dataset_args.max_samples != -1:
-        eval_dataset = data.datasets.Range(eval_dataset, config.eval_dataset_args.max_samples)
+    eval_dataset = prepare_dataset(
+        config.get_eval_sets(), config.eval_dataset_args
+    )
 
 
     # 5. Run Inference with Pipeline
@@ -148,7 +133,6 @@ def main():
         predictions,
         references,
         model_path,
-        is_peft,
         args.config_path
     )
 
@@ -159,7 +143,6 @@ def save_inference_results(
     predictions,
     references,
     model_path,
-    is_peft=False,
     config_path=None
 ):
     import json
@@ -170,7 +153,6 @@ def save_inference_results(
     
     results = {
         "model_path": str(model_path),
-        "is_peft": is_peft,
         "metrics": metrics,
         "config_path": str(config_path) if config_path else None
     }
