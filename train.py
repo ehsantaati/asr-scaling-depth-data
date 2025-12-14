@@ -246,6 +246,9 @@ def main():
 
             trainer.save_model()
             
+            # Save processor (tokenizer) alongside model for self-contained checkpoints
+            processor.save_pretrained(str(output_dir))
+            
             # Save metrics and predictions using the shared function
             save_inference_results(
                 output_dir,

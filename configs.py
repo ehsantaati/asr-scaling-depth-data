@@ -43,7 +43,8 @@ class BaseConfig:
 
 @dataclasses.dataclass
 class InferenceConfig(BaseConfig):
-    pass
+    use_fast_inference: bool = False
+    num_inference_workers: int = 4
 
 
 @dataclasses.dataclass

@@ -1,17 +1,18 @@
 import argparse
-import dataclasses
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Optional
 
 import torch
-import transformers
 import simple_parsing
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
-from peft import PeftModel, PeftConfig
+from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
+from peft import PeftModel
+import evaluate
+import datasets as hf_datasets
+from tqdm import tqdm
 
 # Add current directory to path to allow imports from train.py
 sys.path.append(str(Path(__file__).parent))
@@ -22,6 +23,7 @@ from data import registry
 import data.configs
 
 def main():
+
     # Setup logging
     logging.basicConfig(
         level=logging.INFO,
@@ -33,9 +35,12 @@ def main():
 
     parser = argparse.ArgumentParser(description="Run inference with Whisper model")
     parser.add_argument("--config_path", type=str, required=True, help="Path to the YAML training config file")
-    parser.add_argument("--checkpoint_path", type=str, default=None, help="Path to the model checkpoint (optional). If not provided, uses the model_id from config.")
+
     parser.add_argument("--output_dir", type=str, default=None, help="Directory to save results (optional). Defaults to config.output_dir/inference_results")
     parser.add_argument("--batch_size", type=int, default=None, help="Batch size for inference. If not provided, uses config.batch_size or defaults to 1.")
+
+    parser.add_argument("--use_fast_inference", action="store_true", help="Use optimized inference for short audio (<30s).")
+    parser.add_argument("--num_inference_workers", type=int, default=None, help="Number of workers for fast inference.")
     
     args = parser.parse_args()
 
@@ -59,20 +64,18 @@ def main():
         # Use eval_batch_size from BaseConfig as default for inference
         batch_size = config.eval_batch_size if hasattr(config, "eval_batch_size") else 1
     logging.info(f"Using batch size: {batch_size}")
+    
+    if args.use_fast_inference:
+        config.use_fast_inference = True
+    if args.num_inference_workers is not None:
+        config.num_inference_workers = args.num_inference_workers
 
     # Register datasets
     registry.register_datasets(data.configs.ALL_CONFIGS)
 
     # 2. Determine Model and Output Paths
-    if args.checkpoint_path:
-        model_path = args.checkpoint_path
-        logging.info(f"Using checkpoint from CLI: {model_path}")
-    elif config.checkpoint_path:
-        model_path = config.checkpoint_path
-        logging.info(f"Using checkpoint from config: {model_path}")
-    else:
-        model_path = config.model_id
-        logging.info(f"Using vanilla model: {model_path}")
+    model_path = config.model_id
+    logging.info(f"Using model and processor from: {model_path}")
 
     if args.output_dir:
         output_dir = Path(args.output_dir)
@@ -80,27 +83,23 @@ def main():
         output_dir = config.output_dir / "inference_results"
     
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Add file handler to logging
+    file_handler = logging.FileHandler(output_dir / "inference_log.log")
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logging.getLogger().addHandler(file_handler)
+    
     logging.info(f"Results will be saved to: {output_dir}")
 
     # 3. Load Model and Processor
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device: {device}")
 
-    processor = WhisperProcessor.from_pretrained(config.model_id, language=config.language, task=config.task)
+    processor = WhisperProcessor.from_pretrained(model_path, language=config.language, task=config.task)
     
     # Load model
-    # Check if it's a PEFT model or full model
-    # If checkpoint_path is a directory containing adapter_config.json, it's PEFT
-    is_peft = False
-    if model_path and (Path(model_path) / "adapter_config.json").exists():
-        is_peft = True
-        logging.info("Detected PEFT adapter checkpoint.")
-        # Load base model first
-        model = WhisperForConditionalGeneration.from_pretrained(config.model_id)
-        # Load adapters
-        model = PeftModel.from_pretrained(model, model_path)
-    else:
-        model = WhisperForConditionalGeneration.from_pretrained(model_path)
+    # We assume the model at model_path is the full merged model
+    model = WhisperForConditionalGeneration.from_pretrained(model_path)
 
     if config.fp16:
         logging.info("Converting model to fp16")
@@ -115,15 +114,25 @@ def main():
     )
 
 
-    # 5. Run Inference with Pipeline
-    metrics, predictions, references = run_inference_pipeline(
-        model,
-        processor,
-        eval_dataset,
-        device,
-        batch_size=batch_size,
-        language=config.language
-    )
+    # 5. Run Inference
+    if config.use_fast_inference:
+        metrics, predictions, references = run_inference_map(
+             model,
+             processor,
+             eval_dataset,
+             batch_size=batch_size,
+             language=config.language,
+             num_workers=config.num_inference_workers
+        )
+    else:
+        metrics, predictions, references = run_inference_pipeline(
+            model,
+            processor,
+            eval_dataset,
+            device,
+            batch_size=batch_size,
+            language=config.language
+        )
     
     
     # 6. Save Results
@@ -145,9 +154,6 @@ def save_inference_results(
     model_path,
     config_path=None
 ):
-    import json
-    import logging
-    
     # Ensure output_dir is Path
     output_dir = Path(output_dir)
     
@@ -181,9 +187,6 @@ def run_inference_pipeline(
     language="en",
 ):
     from transformers import pipeline
-    from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
-    import evaluate
-    from tqdm import tqdm
     
     logging.info(f"Starting inference with pipeline (chunk_length_s=30) and batch_size={batch_size}...")
 
@@ -233,6 +236,136 @@ def run_inference_pipeline(
     logging.info(f"Final Inference WER: {wer}")
 
     return {"wer": wer}, predictions, references
+
+def run_inference_map(
+    model,
+    processor,
+    dataset,
+    batch_size=16,
+    language="en",
+    num_workers=4
+):
+    logging.info(f"Starting inference with map (fast mode) and batch_size={batch_size}, num_workers={num_workers}...")
+    
+    # 1. Unwrap the dataset to get the underlying HF dataset
+    # We expect dataset to be a prepare_dataset result, which might be Range or GenericDataset or InterleaveDataset.
+    # For now, let's assume simple structure and try to find the GenericDataset or HF dataset.
+    
+    hf_ds = None
+    
+    # Check if it's our wrapper
+    if hasattr(dataset, "_dataset"):
+        # Could be Range(GenericDataset) or just GenericDataset(VoiceDataset)
+        # We need to dig down to the HF dataset.
+        
+        # Helper to unwrap
+        def unwrap(ds):
+            if hasattr(ds, "_dataset"):
+                return unwrap(ds._dataset)
+            return ds
+            
+        inner = unwrap(dataset)
+        
+        # VoiceDataset stores hf dataset in self._dataset too, but defined in _init_dataset.
+        # But VoiceDataset inherits from SizedIterableDataset, not GenericDataset directly (Generic inherits Voice).
+        # Actually VoiceDataset._dataset IS the HF dataset (or concatenation of them).
+        
+        if isinstance(inner, hf_datasets.Dataset) or isinstance(inner, hf_datasets.IterableDataset):
+            hf_ds = inner
+        else:
+             logging.warning(f"Could not unwrap to HF dataset, found {type(inner)}. Fallback might fail.")
+             hf_ds = inner
+             
+    else:
+        hf_ds = dataset
+
+    if hf_ds is None:
+         raise ValueError("Could not extract underlying Hugging Face dataset for .map() operations.")
+         
+    # 2. Map function
+    def map_to_pred(batch):
+        # Batch is a dict of lists
+        audio_arrays = [x['array'] for x in batch["audio"]]
+        sampling_rates = [x['sampling_rate'] for x in batch["audio"]]
+
+        # Check audio length
+        for i, (audio, sr) in enumerate(zip(audio_arrays, sampling_rates)):
+            duration = len(audio) / sr
+            if duration >= 30.0:
+                logging.warning(f"Audio sample {i} in batch has duration {duration:.2f}s, which is >= 30s. Fast inference might fail or truncate.")
+        
+        # Processor expects single item or list. 
+        # Check sampling rate consistency
+        assert all(sr == 16000 for sr in sampling_rates), "All sampling rates must be 16000"
+        
+        input_features = processor(audio_arrays, sampling_rate=16000, return_tensors="pt", padding="max_length").input_features
+        
+        # Normalize reference text
+        
+        # We must replicate text normalization or ensure hf_ds has 'text' field.
+        # Spgispeech_2 has 'transcript' and 'raw_transcript'.
+        # GenericDataset configures `transcript_field`.
+        
+        # The prompt code assumes `batch['text']`.
+        # We need to know the text column.
+        # We can try to guess or use the standard `text` if available.
+        
+        ref_texts = []
+        if "transcript" in batch: 
+            raw_texts = batch["transcript"]
+        elif "text" in batch:
+            raw_texts = batch["text"]
+        else:
+            # Fallback
+            raw_texts = [""] * len(audio_arrays)
+            
+        # Normalize
+        # We can use processor.tokenizer._normalize if available or normalizer
+        # In current code:
+        # Let's simple use the normalizer later on the full list to be consistent with pipeline flow.
+        # But we need to store it.
+        batch["reference"] = raw_texts 
+        
+        # Check model dtype
+        input_features = input_features.to(device=model.device, dtype=model.dtype)
+        
+        # Generate
+        with torch.no_grad():
+             generated_ids = model.generate(input_features)
+        
+        transcriptions = processor.batch_decode(generated_ids, skip_special_tokens=True)
+        batch["prediction"] = transcriptions
+        return batch
+
+    # 3. Apply map
+    # Ensure model is on GPU
+    # map_to_pred moves input to device, so model should be there.
+    
+    logging.info("Running inference using dataset.map...")
+    result_ds = hf_ds.map(
+        map_to_pred, 
+        batched=True, 
+        batch_size=batch_size, 
+        num_proc=num_workers if num_workers > 0 else None,
+        remove_columns=hf_ds.column_names # Remove old columns to save memory? Or keep for debugging.
+    )
+    
+    # 4. Extract results
+    predictions = result_ds["prediction"]
+    references = result_ds["reference"]
+    
+    # Normalization (Post-processing)
+    normalizer = EnglishTextNormalizer({})
+    
+    predictions_norm = [normalizer(t) for t in predictions]
+    references_norm = [normalizer(r) for r in references]
+    
+    # Compute metrics
+    metric = evaluate.load("wer")
+    wer = metric.compute(predictions=predictions_norm, references=references_norm)
+    logging.info(f"Final Inference WER: {wer}")
+
+    return {"wer": wer}, predictions_norm, references_norm
 
 if __name__ == "__main__":
     main()

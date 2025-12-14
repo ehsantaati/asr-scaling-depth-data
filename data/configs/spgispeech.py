@@ -18,7 +18,7 @@ SPGISPEECH_S_CONFIG = types.DatasetConfig(
         types.DatasetSplitConfig(
             name="validation", num_samples=39304, split=types.DatasetSplit.VALIDATION
         ),
-        types.DatasetSplitConfig(name="test", num_samples=39341),
+        types.DatasetSplitConfig(name="test", num_samples=39341, split=types.DatasetSplit.TEST),
     ],
 )
 
