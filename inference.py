@@ -85,7 +85,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Add file handler to logging
-    file_handler = logging.FileHandler(output_dir / "inference_log.log")
+    file_handler = logging.FileHandler(output_dir / "inference.log")
     file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     logging.getLogger().addHandler(file_handler)
     
@@ -142,7 +142,8 @@ def main():
         predictions,
         references,
         model_path,
-        args.config_path
+        args.config_path,
+        dataset_name=f"{'+'.join([d['name'] for d in config.eval_sets])}_{config.eval_dataset_args.split}"
     )
 
 
@@ -152,7 +153,8 @@ def save_inference_results(
     predictions,
     references,
     model_path,
-    config_path=None
+    config_path=None,
+    dataset_name=None
 ):
     # Ensure output_dir is Path
     output_dir = Path(output_dir)
@@ -160,7 +162,8 @@ def save_inference_results(
     results = {
         "model_path": str(model_path),
         "metrics": metrics,
-        "config_path": str(config_path) if config_path else None
+        "config_path": str(config_path) if config_path else None,
+        "dataset_name": dataset_name,
     }
     
     results_file = output_dir / "results.json"

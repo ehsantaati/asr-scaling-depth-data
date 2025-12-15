@@ -21,7 +21,7 @@ from transformers import (
 )
 
 from utils import prepare_dataset, DataCollatorSpeechSeq2SeqWithPadding, WhisperDataproc
-from inference import run_inference_pipeline, save_inference_results
+from inference import run_inference_pipeline, run_inference_map, save_inference_results
 from data import datasets, registry, types, partitioning
 from configs import BaseConfig, TrainConfig, LoraConfigArgs
 
@@ -58,7 +58,6 @@ def main():
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler("training.log"),
             logging.StreamHandler()
         ]
     )
@@ -109,6 +108,18 @@ def main():
         for i in range(num_subsets_to_run):
             logging.info(f"Subset {i+1}/{num_subsets_to_run} (Partition Index: {i})")
             
+            # 0. Setup Output Directory & Logging
+            # Extract experiment ID from output_dir (e.g. "outputs/002" -> "002")
+            exp_id = config.output_dir.name
+            run_name = f"{exp_id}_frac_{fraction}_subset_{i}"
+            output_dir = config.output_dir / run_name
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            # Add file handler to logging for this specific run
+            file_handler = logging.FileHandler(output_dir / "train.log")
+            file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+            logging.getLogger().addHandler(file_handler)
+
             # 1. Initialize Model
             model = WhisperForConditionalGeneration.from_pretrained(
                 config.model_id
@@ -176,10 +187,7 @@ def main():
             train_dataset_proc = WhisperDataproc(train_dataset, processor)
 
             # 3. Setup Trainer
-            # Extract experiment ID from output_dir (e.g. "outputs/002" -> "002")
-            exp_id = config.output_dir.name
-            run_name = f"{exp_id}_frac_{fraction}_subset_{i}"
-            output_dir = config.output_dir / run_name
+
             
             training_args = Seq2SeqTrainingArguments(
                 run_name=run_name,
@@ -229,14 +237,27 @@ def main():
             
             # Ensure model is on correct device
             device = trainer.args.device
-            metrics, predictions, references = run_inference_pipeline(
-                model, 
-                processor, 
-                eval_dataset, 
-                device, 
-                batch_size=config.eval_batch_size,
-                language=config.language
-            )
+            
+            if config.use_fast_inference:
+                logging.info("Using FAST inference mode (dataset.map)...")
+                metrics, predictions, references = run_inference_map(
+                    model,
+                    processor,
+                    eval_dataset,
+                    batch_size=config.eval_batch_size,
+                    language=config.language,
+                    num_workers=config.num_inference_workers
+                )
+            else:
+                logging.info("Using PIPELINE inference mode...")
+                metrics, predictions, references = run_inference_pipeline(
+                    model, 
+                    processor, 
+                    eval_dataset, 
+                    device, 
+                    batch_size=config.eval_batch_size,
+                    language=config.language
+                )
 
             # 6. Merge and Save Final Model
             if config.lora_config is not None:
@@ -256,6 +277,7 @@ def main():
                 predictions,
                 references,
                 model_path=output_dir, # In train.py, the model is in the output_dir
+                dataset_name=f"{'+'.join([d['name'] for d in config.eval_sets])}_{config.eval_dataset_args.split}"
             )
             
             # Log to WandB and TensorBoard
@@ -289,6 +311,10 @@ def main():
             # Cleanup
             del model
             del trainer
+            
+            # Remove file handler to prevent duplicate logs in next iteration
+            logging.getLogger().removeHandler(file_handler)
+            file_handler.close()
             torch.cuda.empty_cache()
 
 
