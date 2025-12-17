@@ -1,0 +1,50 @@
+# Fine-tuning config 
+model_id: "openai/whisper-medium"
+language: "en"
+task: "transcribe"
+
+train_sets:
+  - name: "spgispeech_2"
+
+train_dataset_args:
+  max_audio_duration_secs: 30
+
+val_sets:
+  - name: "spgispeech_2"
+
+val_dataset_args:
+  max_audio_duration_secs: 30
+
+eval_sets:
+  - name: "spgispeech_2"
+
+eval_dataset_args:
+  max_samples: -1
+
+# Data scaling
+data_fractions: [1.0]
+num_subsets: 1
+
+# LoRA (optional, disable for this test)
+lora_config:
+  r: 128                  # Rank
+  lora_alpha: 256       # Alpha scaling
+  lora_dropout: 0.1     # Dropout probability
+
+target_modules:
+  - "proj_out"
+# Training
+output_dir: "outputs/0025_l_spgis_2"
+max_steps: 10000 
+batch_size: 16
+grad_accum_steps: 1
+learning_rate: 1e-5
+warmup_steps: 500
+fp16: true
+seed: 42
+dataloader_num_workers: 8
+
+# Evaluation
+do_eval: true
+eval_steps: 1000
+eval_batch_size: 16
