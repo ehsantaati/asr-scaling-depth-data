@@ -345,17 +345,35 @@ def run_inference_map(
     # map_to_pred moves input to device, so model should be there.
     
     logging.info("Running inference using dataset.map...")
-    result_ds = hf_ds.map(
-        map_to_pred, 
-        batched=True, 
-        batch_size=batch_size, 
-        num_proc=num_workers if num_workers > 0 else None,
-        remove_columns=hf_ds.column_names # Remove old columns to save memory? Or keep for debugging.
-    )
+    
+    map_kwargs = {
+        "batched": True,
+        "batch_size": batch_size,
+        "remove_columns": hf_ds.column_names
+    }
+    
+    if not isinstance(hf_ds, hf_datasets.IterableDataset):
+        if num_workers is not None and num_workers > 0:
+            map_kwargs["num_proc"] = num_workers
+
+    result_ds = hf_ds.map(map_to_pred, **map_kwargs)
     
     # 4. Extract results
-    predictions = result_ds["prediction"]
-    references = result_ds["reference"]
+    if isinstance(result_ds, hf_datasets.IterableDataset):
+        predictions = []
+        references = []
+        total_samples = None
+        try:
+             total_samples = len(dataset)
+        except:
+             pass
+             
+        for sample in tqdm(result_ds, total=total_samples, desc="Fast Inference"):
+             predictions.append(sample["prediction"])
+             references.append(sample["reference"])
+    else:
+        predictions = result_ds["prediction"]
+        references = result_ds["reference"]
     
     # Normalization (Post-processing)
     normalizer = EnglishTextNormalizer({})
