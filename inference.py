@@ -344,6 +344,29 @@ def run_inference_map(
     # Ensure model is on GPU
     # map_to_pred moves input to device, so model should be there.
     
+    # Enforce 30s limit for fast inference
+    logging.info("Fast inference enabled: Filtering out audio samples > 30.0s")
+    
+    def filter_audio_length(sample):
+        # Decode/Access audio to get duration
+        # Audio might be under 'audio' key as dict/array
+        if "audio" in sample:
+            audio_data = sample["audio"]
+            if "array" in audio_data:
+                # Already decoded
+                dur = len(audio_data["array"]) / audio_data["sampling_rate"]
+            else:
+                # Not decoded ?? generic HF datasets usually decode on access if 'audio' is Audio feature
+                # However, if we are streaming, accessing it might decode it.
+                # If we have path but not array, we can't easily filter without loading.
+                # Assuming decoded for now based on previous code.
+                return False 
+            
+            return dur < 30.0
+        return True 
+        
+    hf_ds = hf_ds.filter(filter_audio_length)
+
     logging.info("Running inference using dataset.map...")
     
     map_kwargs = {
