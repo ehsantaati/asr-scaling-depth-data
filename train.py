@@ -186,6 +186,16 @@ def main():
             
             train_dataset_proc = WhisperDataproc(train_dataset, processor)
 
+                        # Calculate max_steps based on num_epochs, batch size, and gradient accumulation
+            num_update_steps_per_epoch = len(train_dataset) // (config.batch_size * config.grad_accum_steps)
+            if num_update_steps_per_epoch == 0:
+                 # If dataset is smaller than batch * grad_accum, we at least have 1 step if possible, or 0.
+                 # Warn about this.
+                 logging.warning(f"Dataset length ({len(train_dataset)}) is smaller than effective batch size ({config.batch_size * config.grad_accum_steps}).")
+            
+            calculated_max_steps = int(num_update_steps_per_epoch * config.num_epochs)
+            logging.info(f"Calculated max_steps: {calculated_max_steps} (Epochs: {config.num_epochs}, Steps/Epoch: {num_update_steps_per_epoch}, Dataset Len: {len(train_dataset)})")
+
             # 3. Setup Trainer
 
             
@@ -198,7 +208,7 @@ def main():
                 gradient_accumulation_steps=config.grad_accum_steps,
                 learning_rate=config.learning_rate,
                 warmup_steps=config.warmup_steps,
-                max_steps=config.max_steps,
+                max_steps=calculated_max_steps,
                 num_train_epochs=config.num_epochs,
                 fp16=config.fp16,
                 logging_steps=25,
