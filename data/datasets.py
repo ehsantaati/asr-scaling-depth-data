@@ -520,7 +520,9 @@ class Dataproc(SizedIterableDataset):
     def __iter__(self):
         # Replace generator expression with a regular function that yields items
         for sample in self._dataset:
-            yield self._process(sample)
+            processed = self._process(sample)
+            if processed is not None:
+                yield processed
 
     def __len__(self):
         return len(self._dataset)

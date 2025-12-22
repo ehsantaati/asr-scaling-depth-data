@@ -39,9 +39,10 @@ def prepare_dataset(
 
 
 class WhisperDataproc(datasets.Dataproc):
-    def __init__(self, dataset, processor):
+    def __init__(self, dataset, processor, max_label_length=448):
         super().__init__(dataset)
         self.processor = processor
+        self.max_label_length = max_label_length
 
     def _process(self, sample):
         # Process audio
@@ -52,6 +53,11 @@ class WhisperDataproc(datasets.Dataproc):
         
         # Process text
         labels = self.processor(text=sample.text).input_ids
+        
+        # Filter long transcriptions
+        if len(labels) > self.max_label_length:
+             logging.debug(f"Skipping sample with token length {len(labels)} > {self.max_label_length}")
+             return None
         
         return {
             "audio": {"array": input_features},

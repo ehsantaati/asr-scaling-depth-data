@@ -184,7 +184,9 @@ def main():
                 total_partitions=total_partitions
             )
             
-            train_dataset_proc = WhisperDataproc(train_dataset, processor)
+            # Wrapper with max length filtering
+            max_label_length = getattr(model.config, "max_length", 448)
+            train_dataset_proc = WhisperDataproc(train_dataset, processor, max_label_length=max_label_length)
 
                         # Calculate max_steps based on num_epochs, batch size, and gradient accumulation
             num_update_steps_per_epoch = len(train_dataset) // (config.batch_size * config.grad_accum_steps)

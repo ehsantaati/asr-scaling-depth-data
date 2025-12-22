@@ -4,20 +4,21 @@ language: "en"
 task: "transcribe"
 
 train_sets:
-  - name: "spgispeech_2"
+  - name: "mlcommons-peoples-speech-clean-sa"
+  - name: "mlcommons-peoples-speech-dirty-sa"
 
 train_dataset_args:
   max_audio_duration_secs: 30
 
 val_sets:
-  - name: "spgispeech_2"
+  - name: "mlcommons-peoples-speech-validation"
 
 val_dataset_args:
   max_audio_duration_secs: 30
   max_samples: -1
 
 eval_sets:
-  - name: "spgispeech_2"
+  - name: "mlcommons-peoples-speech-test"
 
 eval_dataset_args:
   max_samples: -1
@@ -29,8 +30,8 @@ num_subsets: 1
 target_modules:
   - "proj_out"
 # Training
-output_dir: "outputs/001_spgis_2"
-max_steps: 10000 # 10_000 to count 1 epoch
+output_dir: "outputs/mlcommons-peoples-speech/001_s_1"
+num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1
 learning_rate: 1e-5
@@ -38,6 +39,7 @@ warmup_steps: 500
 fp16: true
 seed: 42
 dataloader_num_workers: 8
+
 # Evaluation
 do_eval: true
 eval_steps: 1000
