@@ -110,7 +110,11 @@ def main():
             
             # 0. Setup Output Directory & Logging
             # Extract experiment ID from output_dir (e.g. "outputs/002" -> "002")
-            exp_id = config.output_dir.name
+            if config.run_name:
+                exp_id = config.run_name
+            else:
+                exp_id = config.output_dir.name
+            
             run_name = f"{exp_id}_frac_{fraction}_subset_{i}"
             output_dir = config.output_dir / run_name
             output_dir.mkdir(parents=True, exist_ok=True)

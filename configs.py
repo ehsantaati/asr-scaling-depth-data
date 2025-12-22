@@ -59,6 +59,9 @@ class TrainConfig(BaseConfig):
     train_sets: List[Dict[str, Any]] = simple_parsing.list_field()
     val_sets: List[Dict[str, Any]] = simple_parsing.list_field()
 
+    # Run Name (Optional manual override)
+    run_name: Optional[str] = None
+
     train_dataset_args: types.TrainDatasetArgs = simple_parsing.field(
         default_factory=types.TrainDatasetArgs
     )
