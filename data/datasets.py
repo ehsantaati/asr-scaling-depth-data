@@ -100,6 +100,29 @@ class VoiceDataset(SizedIterableDataset):
         audio_field: Optional[str] = None,
         features: Optional[hf_datasets.Features] = None,
     ) -> data.Dataset:
+        # Handle slicing for streaming datasets manually
+        # Syntax: split_name[start:stop]
+        # Note: This only supports integer indices for now, not percentages
+        slice_start = None
+        slice_stop = None
+        
+        if streaming and split and "[" in split and "]" in split:
+            import re
+            # Match split_name[start:stop]
+            match = re.match(r"^(.+)\[(\d*):(\d*)\]$", split)
+            if match:
+                split = match.group(1)
+                start_str = match.group(2)
+                stop_str = match.group(3)
+                if start_str:
+                    slice_start = int(start_str)
+                if stop_str:
+                    slice_stop = int(stop_str)
+            else:
+                 # Check for percentage which is not supported easily yet
+                 if "%" in split:
+                     raise ValueError(f"Percentage slicing is not supported for streaming datasets in internal logic: {split}")
+
         # HF datasets sometimes fails to download due to network issues, so retry a few times.
         dataset = hf_datasets.load_dataset(
             path,
@@ -110,6 +133,27 @@ class VoiceDataset(SizedIterableDataset):
             download_config=hf_datasets.DownloadConfig(max_retries=10),
             trust_remote_code=True,
         )
+        
+        if slice_start is not None:
+            dataset = dataset.skip(slice_start)
+        
+        if slice_stop is not None:
+            # For [start:stop], we want (stop - start) items if start is present
+            # If start is None (0), we want stop items.
+            # However, take() takes N items from current position.
+            # If we skipped start, we are at start. We want to reach stop.
+            # So we take (stop - start).
+            
+            take_count = slice_stop
+            if slice_start is not None:
+                take_count = slice_stop - slice_start
+            
+            # If take_count is negative, it means stop < start, which returns empty
+            if take_count < 0:
+                take_count = 0
+                
+            dataset = dataset.take(take_count)
+
         if audio_field is not None:
             dataset = dataset.cast_column(
                 audio_field, hf_datasets.Audio(sampling_rate=data_sample.SAMPLE_RATE)
@@ -246,7 +290,7 @@ class GenericDataset(VoiceDataset):
                 ds = self._load_hf_dataset(
                     config.path,
                     config.subset,
-                    split=split.name,
+                    split=split.source_split or split.name,
                     streaming=(
                         config.streaming
                         if config.streaming is not None

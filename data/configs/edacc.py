@@ -6,7 +6,16 @@ EDACC_CONFIG = types.DatasetConfig(
     # transcript_field defaults to "text"
     splits=[
         types.DatasetSplitConfig(
-            name="validation", num_samples=9_850, split=types.DatasetSplit.VALIDATION
+            name="train",
+            num_samples=8_865,
+            split=types.DatasetSplit.TRAIN,
+            source_split="validation[:8865]",
+        ),
+        types.DatasetSplitConfig(
+            name="validation",
+            num_samples=985,
+            split=types.DatasetSplit.VALIDATION,
+            source_split="validation[8865:]",
         ),
         types.DatasetSplitConfig(
             name="test", num_samples=9_290, split=types.DatasetSplit.TEST

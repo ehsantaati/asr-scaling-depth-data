@@ -85,6 +85,8 @@ class DatasetSplitConfig(helpers.Serializable):
     """Number of samples in the split"""
     split: Optional[DatasetSplit] = None
     """Type of split, i.e., train, test, or validation."""
+    source_split: Optional[str] = None
+    """Split to load from the source dataset (e.g. 'train', 'validation', 'train[:100]'). If None, defaults to name."""
 
     def __post_init__(self):
         """Automatically set split type based on split name"""
