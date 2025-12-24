@@ -337,8 +337,7 @@ def run_inference_map(
         elif "text" in batch:
             raw_texts = batch["text"]
         else:
-            # Fallback
-            raw_texts = [""] * len(audio_arrays)
+            raise ValueError(f"Batch samples must contain 'transcript' or 'text' fields. Available keys: {list(batch.keys())}")
         
         # Apply preprocessing to references
         clean_refs = []
