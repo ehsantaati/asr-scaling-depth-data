@@ -4,20 +4,20 @@ language: "en"
 task: "transcribe"
 
 train_sets:
-  - name: "edacc"
+  - name: "speechcolab-gigaspeech-m"
 
 train_dataset_args:
   max_audio_duration_secs: 30
 
 val_sets:
-  - name: "edacc"
+  - name: "speechcolab-gigaspeech-m"
 
 val_dataset_args:
   max_audio_duration_secs: 30
   max_samples: -1
 
 eval_sets:
-  - name: "edacc"
+  - name: "speechcolab-gigaspeech-m"
 
 eval_dataset_args:
   max_audio_duration_secs: 30
@@ -31,8 +31,8 @@ target_modules:
   - "proj_out"
 
 # Training
-output_dir: "outputs/edacc/001"
-run_name: "edacc-001"
+output_dir: "outputs/gigaspeech/001"
+run_name: "gigaspeech-001"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1

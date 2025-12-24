@@ -13,6 +13,7 @@ import transformers
 from torch.utils import data
 
 from . import data_sample
+from . import filtering
 from . import text_proc
 from . import types
 
@@ -419,10 +420,9 @@ class GenericDataset(VoiceDataset):
             raw_text = row[text_field]
         
         # Apply text formatting
-        try:
-            text = text_proc.format_asr_text(raw_text)
-        except Exception:
-            # Skip samples with formatting errors (e.g., garbage tags)
+        text = filtering.clean_text(raw_text)
+        if text is None:
+            # Skip samples with formatting errors or empty text
             return None
 
         audio: Optional[np.ndarray] = self._get_audio_from_config(row)

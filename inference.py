@@ -19,7 +19,7 @@ sys.path.append(str(Path(__file__).parent))
 
 from configs import InferenceConfig
 from utils import prepare_dataset
-from data import registry
+from data import registry, text_proc, filtering, datasets as data_datasets
 import data.configs
 
 def main():
@@ -256,28 +256,42 @@ def run_inference_map(
     
     hf_ds = None
     
-    # Check if it's our wrapper
-    if hasattr(dataset, "_dataset"):
-        # Could be Range(GenericDataset) or just GenericDataset(VoiceDataset)
-        # We need to dig down to the HF dataset.
+    
+    # Support for Range dataset limit
+    max_samples = None
+    
+    # Helper to unwrap and find range limit
+    def unwrap_finding_limit(ds):
+        nonlocal max_samples
+        if isinstance(ds, data_datasets.Range):
+            if max_samples is None:
+                max_samples = ds._length
+                logging.info(f"Found dataset limit (Range): {max_samples}")
+            return unwrap_finding_limit(ds._dataset)
         
-        # Helper to unwrap
-        def unwrap(ds):
-            if hasattr(ds, "_dataset"):
-                return unwrap(ds._dataset)
-            return ds
-            
-        inner = unwrap(dataset)
-        
-        # VoiceDataset stores hf dataset in self._dataset too, but defined in _init_dataset.
-        # But VoiceDataset inherits from SizedIterableDataset, not GenericDataset directly (Generic inherits Voice).
-        # Actually VoiceDataset._dataset IS the HF dataset (or concatenation of them).
-        
-        if isinstance(inner, hf_datasets.Dataset) or isinstance(inner, hf_datasets.IterableDataset):
-            hf_ds = inner
-        else:
-             logging.warning(f"Could not unwrap to HF dataset, found {type(inner)}. Fallback might fail.")
-             hf_ds = inner
+        if hasattr(ds, "_dataset"):
+            return unwrap_finding_limit(ds._dataset)
+        return ds
+
+    # Unwrap GenericDataset or Wrapper to get HF dataset
+    inner = unwrap_finding_limit(dataset)
+    
+    # Needs explicit import for isinstance check on data.datasets above, ensuring import is correct.
+    # We added 'import data.datasets as data_datasets' ? No, 'from data import registry, ...'
+    # Actually 'data.datasets' available if imported 'data.datasets' or 'from data import datasets'
+    # Let's fix import first.
+    
+    hf_ds = None
+    if isinstance(inner, hf_datasets.Dataset) or isinstance(inner, hf_datasets.IterableDataset):
+        hf_ds = inner
+    else:
+         logging.warning(f"Could not unwrap to HF dataset, found {type(inner)}. Fallback might fail.")
+         hf_ds = inner
+    
+    # Apply limit if found
+    if max_samples is not None and hf_ds is not None:
+        logging.info(f"Applying dataset limit to HF dataset: .take({max_samples})")
+        hf_ds = hf_ds.take(max_samples)
              
     else:
         hf_ds = dataset
@@ -314,6 +328,7 @@ def run_inference_map(
         # We can try to guess or use the standard `text` if available.
         
         ref_texts = []
+        ref_texts = []
         if "transcript" in batch: 
             raw_texts = batch["transcript"]
         elif "text" in batch:
@@ -321,6 +336,13 @@ def run_inference_map(
         else:
             # Fallback
             raw_texts = [""] * len(audio_arrays)
+        
+        # Apply preprocessing to references
+        clean_refs = []
+        for t in raw_texts:
+            clean_refs.append(text_proc.format_asr_text(t))
+        
+        raw_texts = clean_refs
             
         # Normalize
         # We can use processor.tokenizer._normalize if available or normalizer
@@ -345,27 +367,23 @@ def run_inference_map(
     # map_to_pred moves input to device, so model should be there.
     
     # Enforce 30s limit for fast inference
-    logging.info("Fast inference enabled: Filtering out audio samples > 30.0s")
+    logging.info("Fast inference enabled: Filtering out audio samples > 30.0s and empty/invalid text")
     
-    def filter_audio_length(sample):
-        # Decode/Access audio to get duration
-        # Audio might be under 'audio' key as dict/array
-        if "audio" in sample:
-            audio_data = sample["audio"]
-            if "array" in audio_data:
-                # Already decoded
-                dur = len(audio_data["array"]) / audio_data["sampling_rate"]
-            else:
-                # Not decoded ?? generic HF datasets usually decode on access if 'audio' is Audio feature
-                # However, if we are streaming, accessing it might decode it.
-                # If we have path but not array, we can't easily filter without loading.
-                # Assuming decoded for now based on previous code.
-                return False 
+    class FilterTracker:
+        def __init__(self):
+            self.total = 0
+            self.passed = 0
             
-            return dur < 30.0
-        return True 
-        
-    hf_ds = hf_ds.filter(filter_audio_length)
+        def __call__(self, sample):
+            self.total += 1
+            keep = filtering.is_valid_sample(sample, max_duration=30.0)
+            if keep:
+                self.passed += 1
+            return keep
+
+    tracker = FilterTracker()
+    hf_ds = hf_ds.filter(tracker)
+
 
     logging.info("Running inference using dataset.map...")
     
@@ -397,6 +415,13 @@ def run_inference_map(
     else:
         predictions = result_ds["prediction"]
         references = result_ds["reference"]
+        
+    # Log filtering statistics
+    if tracker.total > 0:
+        filtered = tracker.total - tracker.passed
+        logging.info(f"Filtering Summary: Processed {tracker.total} samples. Kept {tracker.passed}, Filtered {filtered} ({filtered/tracker.total:.2%})")
+    else:
+         logging.warning("Filtering Summary: No samples processed by filter (cached or empty?)")
     
     # Normalization (Post-processing)
     normalizer = EnglishTextNormalizer({})
