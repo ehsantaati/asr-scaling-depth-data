@@ -56,8 +56,6 @@ def format_asr_text(text: str) -> str:
 
 
 
-
-
 CONVERSATIONAL_FILLER = [
     "UH",
     "UHH",
