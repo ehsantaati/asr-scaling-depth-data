@@ -3,7 +3,7 @@ language: "en"
 task: "transcribe"
 
 eval_sets:
-  - name: "edacc"
+  - name: "speechcolab-gigaspeech-m"
 
 eval_batch_size: 16
 
@@ -15,4 +15,4 @@ num_inference_workers: 0
 
 fp16: true
 
-output_dir: "/mnt/asr-data-scaling/outputs/edacc/"
+output_dir: "/mnt/asr-data-scaling/outputs/gigaspeech/"
