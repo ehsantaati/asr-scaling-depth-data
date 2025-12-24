@@ -198,27 +198,38 @@ class VoiceDataset(SizedIterableDataset):
         actual_length = 0
         skipped_samples = 0
         bad_samples = 0
+        
+        # Error counters
+        none_sample_count = 0
+        empty_text_count = 0
+        none_audio_count = 0
+        empty_audio_count = 0
+        
         for row in dataset_iter:
             actual_length += 1
             sample = self._get_sample(row)
             if sample is None:
-                print(f"Sample is None in dataset {self.name} for row {row}")
+                # print(f"Sample is None in dataset {self.name} for row {row}")
+                none_sample_count += 1
                 bad_samples += 1
                 continue
 
             if len(sample.text.strip()) == 0:
-                print(
-                    f"Sample has empty text in dataset {self.name} for row {row}"
-                )
+                # print(
+                #     f"Sample has empty text in dataset {self.name} for row {row}"
+                # )
+                empty_text_count += 1
                 bad_samples += 1
                 continue
 
             if sample.audio is None:
-                print(f"Audio is None for sample {sample}")
+                # print(f"Audio is None for sample {sample}")
+                none_audio_count += 1
                 bad_samples += 1
                 continue
             if sample.audio.shape[-1] == 0:
-                print(f"Audio length is 0 for sample {sample}")
+                # print(f"Audio length is 0 for sample {sample}")
+                empty_audio_count += 1
                 bad_samples += 1
                 continue
             if (
@@ -231,9 +242,24 @@ class VoiceDataset(SizedIterableDataset):
 
             yield sample
 
-        logging.info(
-            f"Extracted {actual_length} samples from {self.name} (total: {len(self)}), removed {bad_samples} bad samples, and skipped {skipped_samples} samples for exceeding max audio duration ({self._args.max_audio_duration_secs}s)."
-        )
+        error_summary = []
+        if none_sample_count > 0:
+            error_summary.append(f"None samples: {none_sample_count}")
+        if empty_text_count > 0:
+            error_summary.append(f"Empty text: {empty_text_count}")
+        if none_audio_count > 0:
+            error_summary.append(f"None audio: {none_audio_count}")
+        if empty_audio_count > 0:
+            error_summary.append(f"Empty audio: {empty_audio_count}")
+            
+        error_details = ", ".join(error_summary) if error_summary else "None"
+
+        if actual_length > 0 or bad_samples > 0 or skipped_samples > 0:
+            logging.info(
+                f"Extracted {actual_length} samples from {self.name} (total: {len(self)}). "
+                f"Removed {bad_samples} bad samples ({error_details}), "
+                f"and skipped {skipped_samples} samples for exceeding max audio duration ({self._args.max_audio_duration_secs}s)."
+            )
 
     @abc.abstractmethod
     def _get_sample(

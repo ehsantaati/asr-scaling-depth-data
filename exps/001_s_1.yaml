@@ -44,5 +44,5 @@ dataloader_num_workers: 8
 
 # Evaluation
 do_eval: true
-eval_steps: 100
+eval_steps: 2000
 eval_batch_size: 16
