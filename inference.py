@@ -263,14 +263,19 @@ def run_inference_map(
     # Helper to unwrap and find range limit
     def unwrap_finding_limit(ds):
         nonlocal max_samples
+        
         if isinstance(ds, data_datasets.Range):
             if max_samples is None:
                 max_samples = ds._length
                 logging.info(f"Found dataset limit (Range): {max_samples}")
             return unwrap_finding_limit(ds._dataset)
         
+        if isinstance(ds, data_datasets.VoiceDataset):
+             return unwrap_finding_limit(ds._dataset)
+        
         if hasattr(ds, "_dataset"):
             return unwrap_finding_limit(ds._dataset)
+        
         return ds
 
     # Unwrap GenericDataset or Wrapper to get HF dataset
@@ -293,9 +298,7 @@ def run_inference_map(
         logging.info(f"Applying dataset limit to HF dataset: .take({max_samples})")
         hf_ds = hf_ds.take(max_samples)
              
-    else:
-        hf_ds = dataset
-
+            
     if hf_ds is None:
          raise ValueError("Could not extract underlying Hugging Face dataset for .map() operations.")
          
