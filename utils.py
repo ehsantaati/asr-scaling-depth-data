@@ -43,6 +43,7 @@ class WhisperDataproc(datasets.Dataproc):
         super().__init__(dataset)
         self.processor = processor
         self.max_label_length = max_label_length
+        self.normalizer = EnglishTextNormalizer({})
 
     def _process(self, sample):
         # Process audio
@@ -52,6 +53,10 @@ class WhisperDataproc(datasets.Dataproc):
         ).input_features[0]
         
         # Process text
+        # Filter empty normalized text
+        if len(self.normalizer(sample.text)) == 0:
+             return None
+
         labels = self.processor(text=sample.text).input_ids
         
         # Filter long transcriptions

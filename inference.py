@@ -375,10 +375,29 @@ def run_inference_map(
         def __init__(self):
             self.total = 0
             self.passed = 0
+            self.normalizer = EnglishTextNormalizer({})
             
         def __call__(self, sample):
             self.total += 1
             keep = filtering.is_valid_sample(sample, max_duration=30.0)
+            
+            if keep:
+                # Additional check: normalized text must be non-empty
+                # Extract text similar to how map_to_pred does it
+                raw_text = sample.get("transcript") or sample.get("text")
+                if raw_text:
+                    try:
+                        # is_valid_sample already checks if format_asr_text is non-empty, 
+                        # but we need to check if *normalized* is non-empty.
+                        formatted = text_proc.format_asr_text(raw_text)
+                        normalized = self.normalizer(formatted)
+                        if len(normalized) == 0:
+                            keep = False
+                    except Exception:
+                        keep = False
+                else:
+                    keep = False
+
             if keep:
                 self.passed += 1
             return keep
