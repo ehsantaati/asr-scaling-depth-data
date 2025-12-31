@@ -4,21 +4,23 @@ language: "en"
 task: "transcribe"
 
 train_sets:
-  - name: "spgispeech_2"
+  - name: "speechcolab-gigaspeech-m"
 
 train_dataset_args:
   max_audio_duration_secs: 30
 
 val_sets:
-  - name: "spgispeech_2"
+  - name: "speechcolab-gigaspeech-m"
 
 val_dataset_args:
   max_audio_duration_secs: 30
+  max_samples: -1
 
 eval_sets:
-  - name: "spgispeech_2"
+  - name: "speechcolab-gigaspeech-m"
 
 eval_dataset_args:
+  max_audio_duration_secs: 30
   max_samples: -1
 
 # Data scaling
@@ -27,15 +29,16 @@ num_subsets: 1
 
 # LoRA (optional, disable for this test)
 lora_config:
-  r: 128                  # Rank
-  lora_alpha: 256       # Alpha scaling
+  r: 256                  # Rank
+  lora_alpha: 512        # Alpha scaling
   lora_dropout: 0.1     # Dropout probability
 
 target_modules:
   - "proj_out"
 # Training
-output_dir: "outputs/0025_l_spgis_2"
-max_steps: 10000 
+output_dir: "outputs/gigaspeech/0025"
+run_name: "gigaspeech-0025"
+num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1
 learning_rate: 1e-5

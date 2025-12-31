@@ -187,4 +187,5 @@ wandb/*
 
 .vscode/*
 logs/*
+archive/*
 
