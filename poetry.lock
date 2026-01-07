@@ -1659,6 +1659,18 @@ files = [
 all = ["flake8 (>=7.1.1)", "mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2)"]
 
 [[package]]
+name = "indic-numtowords"
+version = "1.1.0"
+description = "A module to convert numbers to words for Indian languages and English."
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "indic_numtowords-1.1.0-py3-none-any.whl", hash = "sha256:bf4b7b9e539323d9b00bc868caa2d9369170b8f3ac4d19619bf9c6cdc6f89572"},
+    {file = "indic_numtowords-1.1.0.tar.gz", hash = "sha256:d1addc21444c332e05bfd8726af427960c096c2a16776d98bee4fbc36ade5d25"},
+]
+
+[[package]]
 name = "iprogress"
 version = "0.4"
 description = "Text progress bar library for Python."
@@ -2593,6 +2605,18 @@ groups = ["dev"]
 files = [
     {file = "mistune-3.1.4-py3-none-any.whl", hash = "sha256:93691da911e5d9d2e23bc54472892aff676df27a75274962ff9edc210364266d"},
     {file = "mistune-3.1.4.tar.gz", hash = "sha256:b5a7f801d389f724ec702840c11d8fc48f2b33519102fc7ee739e8177b672164"},
+]
+
+[[package]]
+name = "more-itertools"
+version = "10.8.0"
+description = "More routines for operating on iterables, beyond itertools"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "more_itertools-10.8.0-py3-none-any.whl", hash = "sha256:52d4362373dcf7c52546bc4af9a86ee7c4579df9a8dc268be0a2f949d376cc9b"},
+    {file = "more_itertools-10.8.0.tar.gz", hash = "sha256:f638ddf8a1a0d134181275fb5d58b086ead7c6a72429ad725c67503f13ba30bd"},
 ]
 
 [[package]]
@@ -6312,6 +6336,26 @@ MarkupSafe = ">=2.1.1"
 watchdog = ["watchdog (>=2.3)"]
 
 [[package]]
+name = "whisper-normalizer"
+version = "0.1.12"
+description = "A python package for whisper normalizer"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "whisper_normalizer-0.1.12-py3-none-any.whl", hash = "sha256:2cd7276d2599c05147a50cf86d240e6cd27623f5ccfe8b20ccea6a518274989a"},
+    {file = "whisper_normalizer-0.1.12.tar.gz", hash = "sha256:484dcedbfeba2ee94cf9412d57ab1e66b847e91f80c15ffc4c6ab82ad5484b8c"},
+]
+
+[package.dependencies]
+indic-numtowords = "*"
+more_itertools = "*"
+regex = "*"
+
+[package.extras]
+dev = ["black", "ipykernel", "nbdev", "twine"]
+
+[[package]]
 name = "widgetsnbextension"
 version = "4.0.15"
 description = "Jupyter interactive widgets for Jupyter Notebook"
@@ -6621,4 +6665,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11"
-content-hash = "1d8f52471179c8fa7ff64a5c90b98f65bd0052517a6812651f34a80325959639"
+content-hash = "f7bba0c4e16cec555695ecac0acdd67a699d9a7a94d28b53717441265d6e3835"
