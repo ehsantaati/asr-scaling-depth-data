@@ -170,7 +170,7 @@ def main():
             # Then we use PartitionedDataset to pick the i-th slice
             train_args = dataclasses.replace(
                 config.train_dataset_args, 
-                shuffle_seed=config.seed, # Fixed seed for consistent stream
+                shuffle_seed=config.data_seed, # Fixed seed for consistent stream
                 shuffle=True
             )
             
@@ -202,6 +202,14 @@ def main():
             calculated_max_steps = int(num_update_steps_per_epoch * config.num_epochs)
             logging.info(f"Calculated max_steps: {calculated_max_steps} (Epochs: {config.num_epochs}, Steps/Epoch: {num_update_steps_per_epoch}, Dataset Len: {len(train_dataset)})")
 
+            # Calculate warmup steps
+            if config.warmup_ratio > 0:
+                warmup_steps = int(calculated_max_steps * config.warmup_ratio)
+                logging.info(f"Using warmup_ratio {config.warmup_ratio}. Calculated warmup_steps: {warmup_steps}")
+            else:
+                warmup_steps = config.warmup_steps
+                logging.info(f"Using fixed warmup_steps: {warmup_steps}")
+
             # 3. Setup Trainer
 
             
@@ -213,7 +221,7 @@ def main():
                 dataloader_num_workers=config.dataloader_num_workers,
                 gradient_accumulation_steps=config.grad_accum_steps,
                 learning_rate=config.learning_rate,
-                warmup_steps=config.warmup_steps,
+                warmup_steps=warmup_steps,
                 max_steps=calculated_max_steps,
                 num_train_epochs=config.num_epochs,
                 fp16=config.fp16,

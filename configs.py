@@ -33,6 +33,7 @@ class BaseConfig:
     output_dir: Path = Path("outputs")
     fp16: bool = True
     seed: int = 42
+    data_seed: int = 42
     
     # Evaluation
     eval_batch_size: int = 8
@@ -82,6 +83,7 @@ class TrainConfig(BaseConfig):
     grad_accum_steps: int = 1
     learning_rate: float = 1e-5
     warmup_steps: int = 500
+    warmup_ratio: float = 0.0
     max_steps: int = 0  # if > 0, overrides num_epochs
 
     # Evaluation
