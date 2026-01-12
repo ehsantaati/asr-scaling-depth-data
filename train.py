@@ -72,6 +72,16 @@ def main():
     # Set seed
     transformers.set_seed(config.seed)
 
+    if config.strict_reproducibility:
+        logging.info("Strict reproducibility mode ENABLED.")
+        logging.info("Enforcing deterministic CUDA operations...")
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        
+        if config.dataloader_num_workers > 0:
+            logging.warning(f"Overriding dataloader_num_workers from {config.dataloader_num_workers} to 0 for strict reproducibility.")
+            config.dataloader_num_workers = 0
+
     # Load processor
     processor = WhisperProcessor.from_pretrained(
         config.model_id, language=config.language, task=config.task

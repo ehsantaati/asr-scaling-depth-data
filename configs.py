@@ -41,6 +41,9 @@ class BaseConfig:
     # Fast Inference
     use_fast_inference: bool = True
     num_inference_workers: int = 0
+    
+    # Reproducibility
+    strict_reproducibility: bool = False
 
     def get_eval_sets(self) -> List[types.DatasetConfig]:
         return [types.DatasetConfig.from_dict(ds) for ds in self.eval_sets]
