@@ -220,6 +220,30 @@ def main():
                 warmup_steps = config.warmup_steps
                 logging.info(f"Using fixed warmup_steps: {warmup_steps}")
 
+            # Print 3 random samples for verification
+            logging.info("Printing 3 random training samples (Raw)...")
+            try:
+                for idx, sample in enumerate(train_dataset):
+                    if idx >= 3:
+                        break
+                    logging.info(f"Raw Sample {idx+1}: {sample.text}")
+            except Exception as e:
+                logging.warning(f"Failed to print raw training samples: {e}")
+            
+            logging.info("Printing 3 random training samples (Processed)...")
+            try:
+                for idx, sample in enumerate(train_dataset_proc):
+                    if idx >= 3:
+                        break
+                    # Decode the input_ids to check content
+                    if "text_input_ids" in sample:
+                        decoded_text = processor.decode(sample["text_input_ids"], skip_special_tokens=True)
+                        logging.info(f"Proc Sample {idx+1} (Decoded): {decoded_text}")
+                    elif "reference" in sample:
+                        logging.info(f"Proc Sample {idx+1} (Ref): {sample['reference']}")
+            except Exception as e:
+                logging.warning(f"Failed to print processed training samples: {e}")
+
             # 3. Setup Trainer
 
             
