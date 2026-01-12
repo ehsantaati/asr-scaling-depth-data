@@ -3,7 +3,7 @@ from .. import types
 SPEECHCOLAB_GIGASPEECH_BASE = types.DatasetConfig(
     name="speechcolab-gigaspeech",
     path="speechcolab/gigaspeech",
-    streaming=True,
+    streaming=False,
 )
 
 SPEECHCOLAB_GIGASPEECH_M_CONFIG = types.DatasetConfig(
