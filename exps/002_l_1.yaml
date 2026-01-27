@@ -4,20 +4,20 @@ language: "en"
 task: "transcribe"
 
 train_sets:
-  - name: "speechcolab-gigaspeech-m"
+  - name: "spgispeech_2"
 
 train_dataset_args:
   max_audio_duration_secs: 30
 
 val_sets:
-  - name: "speechcolab-gigaspeech-m"
+  - name: "spgispeech_2"
 
 val_dataset_args:
   max_audio_duration_secs: 30
   max_samples: -1
 
 eval_sets:
-  - name: "speechcolab-gigaspeech-m"
+  - name: "spgispeech_2"
 
 eval_dataset_args:
   max_audio_duration_secs: 30
@@ -36,7 +36,7 @@ lora_config:
 target_modules:
   - "proj_out"
 # Training
-output_dir: "outputs/gigaspeech/002"
+output_dir: "outputs/spgispeech_2/0021"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1
