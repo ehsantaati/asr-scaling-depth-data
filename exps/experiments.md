@@ -31,5 +31,5 @@
 > [!NOTE]
 > To execute the experiments, run the following commands:
 > ```bash
-> ./exps/run_exp.sh ID
+> ./exps/run_exp.sh path/to/config.yaml
 > ```

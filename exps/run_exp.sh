@@ -1,19 +1,16 @@
 #!/bin/bash
-ID=$1
+CONFIG_PATH=$1
 DEVICE=${2:-0}
 
-if [ -z "$ID" ]; then
-  echo "Usage: $0 <experiment_id> [device_id]"
+if [ -z "$CONFIG_PATH" ]; then
+  echo "Usage: $0 <config_path> [device_id]"
   exit 1
 fi
 
-# Find config file starting with ID
-CONFIG_FILE=$(find exps -name "${ID}_*.yaml" | head -n 1)
-
-if [ -z "$CONFIG_FILE" ]; then
-  echo "Error: No config file found for ID $ID in exps/"
+if [ ! -f "$CONFIG_PATH" ]; then
+  echo "Error: Config file not found: $CONFIG_PATH"
   exit 1
 fi
 
-echo "Running experiment $ID with config $CONFIG_FILE on device $DEVICE"
-CUDA_VISIBLE_DEVICES=$DEVICE poetry run python train.py --config_path "$CONFIG_FILE"
+echo "Running experiment with config $CONFIG_PATH on device $DEVICE"
+CUDA_VISIBLE_DEVICES=$DEVICE poetry run python train.py --config_path "$CONFIG_PATH"
