@@ -38,15 +38,18 @@ def set_trainable_parameters(model: torch.nn.Module, target_modules: Optional[Li
     trainable_params = 0
     all_params = 0
     
+    trainable_names = []
     for name, param in model.named_parameters():
         all_params += param.numel()
         if any(target in name for target in target_modules):
             param.requires_grad = True
             trainable_params += param.numel()
+            trainable_names.append(name)
         else:
             param.requires_grad = False
             
     logging.info(f"Set trainability based on target_modules: {target_modules}")
+    logging.info(f"Trainable parameter names: {trainable_names}")
     logging.info(f"Trainable params: {trainable_params} / {all_params} ({trainable_params/all_params:.2%})")
 
 
@@ -168,6 +171,8 @@ def main():
                 )
                 model = get_peft_model(model, peft_config)
                 trainable_params, all_param = model.get_nb_trainable_parameters()
+                trainable_names = [name for name, param in model.named_parameters() if param.requires_grad]
+                logging.info(f"Trainable parameter names: {trainable_names}")
                 logging.info(
                     f"trainable params: {trainable_params:,d} || all params: {all_param:,d} || trainable%: {100 * trainable_params / all_param:.4f}"
                 )
