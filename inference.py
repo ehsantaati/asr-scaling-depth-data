@@ -154,7 +154,8 @@ def save_inference_results(
     references,
     model_path,
     config_path=None,
-    dataset_name=None
+    dataset_name=None,
+    training_time=None
 ):
     # Ensure output_dir is Path
     output_dir = Path(output_dir)
@@ -164,6 +165,7 @@ def save_inference_results(
         "metrics": metrics,
         "config_path": str(config_path) if config_path else None,
         "dataset_name": dataset_name,
+        "training_time": training_time,
     }
     
     results_file = output_dir / "results.json"

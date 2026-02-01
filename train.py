@@ -288,7 +288,9 @@ def main():
                 metrics = trainer.evaluate()
                 logging.info(f"Initial metrics: {metrics}")
 
-            trainer.train()
+            train_result = trainer.train()
+            training_time = train_result.metrics.get("train_runtime")
+            logging.info(f"Training completed in {training_time} seconds.")
             
             # 5. Run Inference
             logging.info("Running post-training inference on EVAL sets...")
@@ -340,7 +342,8 @@ def main():
                 predictions,
                 references,
                 model_path=output_dir, # In train.py, the model is in the output_dir
-                dataset_name=f"{'+'.join([d['name'] for d in config.eval_sets])}_{config.eval_dataset_args.split}"
+                dataset_name=f"{'+'.join([d['name'] for d in config.eval_sets])}_{config.eval_dataset_args.split}",
+                training_time=training_time
             )
             
             # Log to WandB and TensorBoard
