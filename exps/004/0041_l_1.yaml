@@ -27,20 +27,24 @@ eval_dataset_args:
 data_fractions: [1.0]
 num_subsets: 1
 
-# LoRA (optional, disable for this test)
+# LoRA
 lora_config:
   r: 64                  # Rank
   lora_alpha: 128        # Alpha scaling
   lora_dropout: 0.1     # Dropout probability
 
 target_modules:
-  - "proj_out"
-  - "model.decoder.layers.23.self_attn.k_proj"
-  - "model.decoder.layers.23.self_attn.v_proj"
-  - "model.decoder.layers.23.self_attn.q_proj"
-  - "model.decoder.layers.23.self_attn.out_proj"
-  - "model.decoder.layers.23.fc1"
-  - "model.decoder.layers.23.fc2"
+- "proj_out"
+- "model.decoder.layers.23.self_attn.q_proj"
+- "model.decoder.layers.23.self_attn.k_proj"
+- "model.decoder.layers.23.self_attn.v_proj"
+- "model.decoder.layers.23.self_attn.out_proj"
+- "model.decoder.layers.23.encoder_attn.q_proj"
+- "model.decoder.layers.23.encoder_attn.k_proj"
+- "model.decoder.layers.23.encoder_attn.v_proj"
+- "model.decoder.layers.23.encoder_attn.out_proj"
+- "model.decoder.layers.23.fc1"
+- "model.decoder.layers.23.fc2"
 
 # Training
 output_dir: "outputs/spgispeech_2/004/0041"
