@@ -27,18 +27,36 @@ eval_dataset_args:
 data_fractions: [1.0]
 num_subsets: 1
 
-# # LoRA (optional, disable for this test)
-# lora_config:
-#   r: 64                  # Rank
-#   lora_alpha: 128        # Alpha scaling
-#   lora_dropout: 0.1     # Dropout probability
-
 target_modules:
   - "proj_out"
   - "model.decoder.layer_norm"
   - "model.decoder.layers.23"
+  - "model.decoder.layers.22"
+  - "model.decoder.layers.21"
+  - "model.decoder.layers.20"
+  - "model.decoder.layers.19"
+  - "model.decoder.layers.18"
+  - "model.decoder.layers.17"
+  - "model.decoder.layers.16"
+  - "model.decoder.layers.15"
+  - "model.decoder.layers.14"
+  - "model.decoder.layers.13"
+  - "model.decoder.layers.12"
+  - "model.decoder.layers.11"
+  - "model.decoder.layers.10"
+  - "model.decoder.layers.9"
+  - "model.decoder.layers.8"
+  - "model.decoder.layers.7"
+  - "model.decoder.layers.6"
+  - "model.decoder.layers.5"
+  - "model.decoder.layers.4"
+  - "model.decoder.layers.3"
+  - "model.decoder.layers.2"
+  - "model.decoder.layers.1"
+  - "model.decoder.layers.0"
+
 # Training
-output_dir: "outputs/spgispeech_2/004/0040"
+output_dir: "outputs/spgispeech_2/007/0070"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1
