@@ -176,6 +176,21 @@ def main():
                 logging.info(
                     f"trainable params: {trainable_params:,d} || all params: {all_param:,d} || trainable%: {100 * trainable_params / all_param:.4f}"
                 )
+                
+                # Re-initialize specific blocks with seed resets to ensure consistency across configurations
+                if config.lora_config.init_blocks:
+                    logging.info(f"Re-initializing LoRA modules in {len(config.lora_config.init_blocks)} blocks with seed resets...")
+                    for block_idx, block in enumerate(config.lora_config.init_blocks):
+                        logging.info(f"Initializing block {block_idx+1}: {block}")
+                        # Reset global and library seeds to the base experiment seed
+                        transformers.set_seed(config.seed)
+                        
+                        # Traverse model and re-init matching modules
+                        for name, module in model.named_modules():
+                            if any(target in name for target in block):
+                                if hasattr(module, "reset_lora_parameters"):
+                                    module.reset_lora_parameters("default", init_lora_weights=True)
+                                    logging.debug(f"Reset LoRA parameters for {name}")
 
             else:
                 set_trainable_parameters(model, config.target_modules)

@@ -10,6 +10,8 @@ class LoraConfigArgs:
     lora_alpha: int = 32
     lora_dropout: float = 0.1
     target_modules: Optional[List[str]] = None
+    # Blocks of modules to initialize with separate seed resets to ensure consistency
+    init_blocks: Optional[List[List[str]]] = None
 
 
 @dataclasses.dataclass

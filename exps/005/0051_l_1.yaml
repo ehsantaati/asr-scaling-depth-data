@@ -32,6 +32,9 @@ lora_config:
   r: 64                  # Rank
   lora_alpha: 128        # Alpha scaling
   lora_dropout: 0.1     # Dropout probability
+  init_blocks:
+    - ["proj_out", "layers.23"]
+    - ["layers.22"]
 
 target_modules:
 - "proj_out"
