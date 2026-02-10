@@ -34,13 +34,14 @@ target_modules:
   - "model.decoder.layers.22"
 
 # Training
-output_dir: "outputs/gigaspeech/005/0050"
+output_dir: "outputs/gigaspeech/005/0050r"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1
 learning_rate: 1e-5
 warmup_ratio: 0.01
 fp16: true
+seed: 12345
 data_seed: 42
 dataloader_num_workers: 8
 strict_reproducibility: true

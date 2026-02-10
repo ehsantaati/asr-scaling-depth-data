@@ -51,6 +51,7 @@ grad_accum_steps: 1
 learning_rate: 1e-5
 warmup_ratio: 0.01
 fp16: true
+seed: 12345
 data_seed: 42
 dataloader_num_workers: 8
 strict_reproducibility: true

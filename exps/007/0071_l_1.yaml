@@ -5,12 +5,14 @@ task: "transcribe"
 
 train_sets:
   - name: "speechcolab-gigaspeech-m"
+    streaming: false
 
 train_dataset_args:
   max_audio_duration_secs: 30
 
 val_sets:
   - name: "speechcolab-gigaspeech-m"
+    streaming: false
 
 val_dataset_args:
   max_audio_duration_secs: 30
@@ -18,6 +20,7 @@ val_dataset_args:
 
 eval_sets:
   - name: "speechcolab-gigaspeech-m"
+    streaming: false
 
 eval_dataset_args:
   max_audio_duration_secs: 30
