@@ -23,8 +23,9 @@ class FormatASRError(ValueError):
 if int(os.environ.get("LOCAL_RANK", 0)) == 0:
     try:
         truecase.get_true_case("test")
-    except LookupError:
+    except (LookupError, Exception):
         nltk.download("punkt", quiet=True)
+        nltk.download("punkt_tab", quiet=True)
 
 
 def format_asr_text(text: str) -> str:
