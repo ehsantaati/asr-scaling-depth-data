@@ -58,6 +58,7 @@ target_modules:
 # Training
 output_dir: "outputs/gigaspeech/007/0070"
 num_epochs: 1
+dropout: 0.2
 batch_size: 16
 grad_accum_steps: 1
 learning_rate: 1e-5

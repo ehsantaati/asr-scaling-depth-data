@@ -60,6 +60,9 @@ class InferenceConfig(BaseConfig):
 class TrainConfig(BaseConfig):
     # LoRA Configuration
     lora_config: Optional[LoraConfigArgs] = None
+    
+    # Regularization
+    dropout: float = 0.0
 
     # Data parameters
     train_sets: List[Dict[str, Any]] = simple_parsing.list_field()

@@ -139,7 +139,8 @@ def main():
 
             # 1. Initialize Model
             model = WhisperForConditionalGeneration.from_pretrained(
-                config.model_id
+                config.model_id,
+                dropout=config.dropout
             )
             model.generation_config.forced_decoder_ids = None
             model.generation_config.suppress_tokens = []
