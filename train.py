@@ -142,6 +142,9 @@ def main():
                 config.model_id,
                 dropout=config.dropout
             )
+            # Log dropout
+            logging.info(f"Initialized model with dropout={config.dropout}")
+            logging.info(f"Model config dropout={model.config.dropout}")
             model.generation_config.forced_decoder_ids = None
             model.generation_config.suppress_tokens = []
 
@@ -345,7 +348,11 @@ def main():
                 logging.info("Merging LoRA adapters into base model before saving...")
                 model = model.merge_and_unload()
                 trainer.model = model
-
+            
+            # Ensure config matches training args
+            if hasattr(model, "config"):
+                model.config.dropout = config.dropout
+                
             trainer.save_model()
             
             # Save processor (tokenizer) alongside model for self-contained checkpoints

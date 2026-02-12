@@ -107,6 +107,10 @@ def main():
 
     model.to(device)
     
+    # Critical Fix: Ensure model is in eval mode to disable dropout
+    model.eval()
+    logging.info(f"Model training mode: {model.training} (Should be False)")
+    
     # 4. Prepare Evaluation Datasets
     logging.info("Preparing evaluation datasets...")
     eval_dataset = prepare_dataset(
