@@ -140,11 +140,13 @@ def main():
             # 1. Initialize Model
             model = WhisperForConditionalGeneration.from_pretrained(
                 config.model_id,
-                dropout=config.dropout
+                dropout=config.dropout,
+                attention_dropout=config.attention_dropout,
+                activation_dropout=config.activation_dropout
             )
             # Log dropout
-            logging.info(f"Initialized model with dropout={config.dropout}")
-            logging.info(f"Model config dropout={model.config.dropout}")
+            logging.info(f"Initialized model with dropout={config.dropout}, attention_dropout={config.attention_dropout}, activation_dropout={config.activation_dropout}")
+            logging.info(f"Model config dropout={model.config.dropout}, attention_dropout={model.config.attention_dropout}, activation_dropout={model.config.activation_dropout}")
             model.generation_config.forced_decoder_ids = None
             model.generation_config.suppress_tokens = []
 
