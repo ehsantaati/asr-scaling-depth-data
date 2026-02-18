@@ -284,6 +284,7 @@ def main():
                 warmup_steps=warmup_steps,
                 max_steps=calculated_max_steps,
                 num_train_epochs=config.num_epochs,
+                weight_decay=config.weight_decay,
                 fp16=config.fp16,
                 logging_steps=25,
                 eval_strategy="steps" if config.do_eval else "no",

@@ -65,6 +65,7 @@ class TrainConfig(BaseConfig):
     dropout: float = 0.0
     attention_dropout: float = 0.0
     activation_dropout: float = 0.0
+    weight_decay: float = 0.0
 
     # Data parameters
     train_sets: List[Dict[str, Any]] = simple_parsing.list_field()
