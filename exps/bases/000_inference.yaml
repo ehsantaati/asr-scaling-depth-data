@@ -10,6 +10,7 @@ eval_batch_size: 16
 
 eval_dataset_args:
   max_samples: -1
+  streaming: true
 
 use_fast_inference: true
 num_inference_workers: 0

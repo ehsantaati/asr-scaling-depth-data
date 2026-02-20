@@ -275,6 +275,18 @@ def run_inference_map(
                 max_samples = ds._length
                 logging.info(f"Found dataset limit (Range): {max_samples}")
             return unwrap_finding_limit(ds._dataset)
+            
+        if isinstance(ds, data_datasets.InterleaveDataset):
+            unwrapped = [unwrap_finding_limit(d) for d in ds._datasets]
+            if all(isinstance(d, hf_datasets.Dataset) for d in unwrapped):
+                return hf_datasets.concatenate_datasets(unwrapped)
+            elif all(isinstance(d, hf_datasets.IterableDataset) for d in unwrapped):
+                sum_weights = sum(ds._weights)
+                probs = [w/sum_weights for w in ds._weights]
+                return hf_datasets.interleave_datasets(unwrapped, probabilities=probs)
+            else:
+                logging.warning("Mixed dataset types in InterleaveDataset, falling back to first child.")
+                return unwrapped[0]
         
         if isinstance(ds, data_datasets.VoiceDataset):
              return unwrap_finding_limit(ds._dataset)
@@ -338,12 +350,14 @@ def run_inference_map(
         
         ref_texts = []
         ref_texts = []
-        if "transcript" in batch: 
+        if "normalized_text" in batch:
+            raw_texts = batch["normalized_text"]
+        elif "transcript" in batch: 
             raw_texts = batch["transcript"]
         elif "text" in batch:
             raw_texts = batch["text"]
         else:
-            raise ValueError(f"Batch samples must contain 'transcript' or 'text' fields. Available keys: {list(batch.keys())}")
+            raise ValueError(f"Batch samples must contain 'normalized_text', 'transcript' or 'text' fields. Available keys: {list(batch.keys())}")
         
         # Apply preprocessing to references
         clean_refs = []
@@ -385,16 +399,24 @@ def run_inference_map(
             
         def __call__(self, sample):
             self.total += 1
-            keep = filtering.is_valid_sample(sample, max_duration=30.0)
+            
+            # The filter function uses 'text' or 'transcript' by default. We must supply the correct key if needed.
+            # Let's find the text key from the sample keys:
+            text_key = None
+            if "normalized_text" in sample:
+                text_key = "normalized_text"
+            elif "transcript" in sample:
+                text_key = "transcript"
+            elif "text" in sample:
+                text_key = "text"
+            
+            keep = filtering.is_valid_sample(sample, max_duration=30.0, text_key=text_key)
             
             if keep:
                 # Additional check: normalized text must be non-empty
-                # Extract text similar to how map_to_pred does it
-                raw_text = sample.get("transcript") or sample.get("text")
+                raw_text = sample.get(text_key) if text_key else None
                 if raw_text:
                     try:
-                        # is_valid_sample already checks if format_asr_text is non-empty, 
-                        # but we need to check if *normalized* is non-empty.
                         formatted = text_proc.format_asr_text(raw_text)
                         normalized = self.normalizer(formatted)
                         if len(normalized) == 0:
