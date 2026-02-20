@@ -58,7 +58,7 @@ target_modules:
   - "model.decoder.layers.0"
 
 # Training
-output_dir: "outputs/gigaspeech/008/0080"
+output_dir: "outputs/gigaspeech/008/00804"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1
@@ -68,6 +68,12 @@ fp16: true
 data_seed: 42
 dataloader_num_workers: 8
 strict_reproducibility: true
+
+dropout: 0.0
+attention_dropout: 0.0
+activation_dropout: 0.0
+
+weight_decay: 0.1
 
 # Evaluation
 do_eval: true

@@ -56,12 +56,14 @@ target_modules:
   - "model.decoder.layers.0"
 
 # Training
-output_dir: "outputs/gigaspeech/007/0070"
+output_dir: "outputs/gigaspeech/007/00706"
 num_epochs: 1
 
-dropout: 0.1
-attention_dropout: 0.1
-activation_dropout: 0.1
+dropout: 0.0
+attention_dropout: 0.0
+activation_dropout: 0.0
+
+weight_decay: 0.1
 
 batch_size: 16
 grad_accum_steps: 1

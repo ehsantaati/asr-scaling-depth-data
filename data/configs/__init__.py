@@ -1,4 +1,4 @@
-from . import edacc, libriheavy, libriheavy_hq, spgispeech, spgispeech_2, peoples_speech, speechcolab_gigaspeech
+from . import edacc, libriheavy, libriheavy_hq, spgispeech, spgispeech_2, peoples_speech, speechcolab_gigaspeech, voxpopuli
 
 ALL_CONFIGS = (
     edacc.configs +
@@ -7,5 +7,6 @@ ALL_CONFIGS = (
     spgispeech.configs +
     spgispeech_2.configs +
     peoples_speech.configs +
-    speechcolab_gigaspeech.configs
+    speechcolab_gigaspeech.configs +
+    voxpopuli.configs
 )
