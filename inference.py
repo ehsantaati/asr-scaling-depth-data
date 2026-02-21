@@ -112,39 +112,51 @@ def main():
     logging.info(f"Model training mode: {model.training} (Should be False)")
     
     # 4. Prepare Evaluation Datasets
-    logging.info("Preparing evaluation datasets...")
-    eval_dataset = prepare_dataset(
-        config.get_eval_sets(), config.eval_dataset_args
-    )
+    # 4 & 5. Prepare and Evaluate Datasets Independently
+    logging.info("Preparing and evaluating datasets independently...")
+    
+    all_metrics = {}
+    all_predictions = {}
+    all_references = {}
 
+    for dataset_config in config.get_eval_sets():
+        dataset_name = dataset_config.name
+        logging.info(f"Evaluating dataset: {dataset_name}")
+        
+        eval_dataset = prepare_dataset(
+            [dataset_config], config.eval_dataset_args
+        )
 
-    # 5. Run Inference
-    if config.use_fast_inference:
-        metrics, predictions, references = run_inference_map(
-             model,
-             processor,
-             eval_dataset,
-             batch_size=batch_size,
-             language=config.language,
-             num_workers=config.num_inference_workers
-        )
-    else:
-        metrics, predictions, references = run_inference_pipeline(
-            model,
-            processor,
-            eval_dataset,
-            device,
-            batch_size=batch_size,
-            language=config.language
-        )
+        if config.use_fast_inference:
+            metrics, predictions, references = run_inference_map(
+                 model,
+                 processor,
+                 eval_dataset,
+                 batch_size=batch_size,
+                 language=config.language,
+                 num_workers=config.num_inference_workers
+            )
+        else:
+            metrics, predictions, references = run_inference_pipeline(
+                model,
+                processor,
+                eval_dataset,
+                device,
+                batch_size=batch_size,
+                language=config.language
+            )
+
+        all_metrics[dataset_name] = metrics
+        all_predictions[dataset_name] = predictions
+        all_references[dataset_name] = references
     
     
     # 6. Save Results
     save_inference_results(
         output_dir,
-        metrics,
-        predictions,
-        references,
+        all_metrics,
+        all_predictions,
+        all_references,
         model_path,
         args.config_path,
         dataset_name=f"{'+'.join([d['name'] for d in config.eval_sets])}_{config.eval_dataset_args.split}"
@@ -177,8 +189,11 @@ def save_inference_results(
         json.dump(results, f, indent=2)
         
     logging.info(f"Saved results to {results_file}")
-    if "wer" in metrics:
-        logging.info(f"WER: {metrics['wer']}")
+    
+    # Log individual dataset metrics
+    for ds_name, ds_metrics in metrics.items():
+        if "wer" in ds_metrics:
+            logging.info(f"WER for {ds_name}: {ds_metrics['wer']}")
 
     # Also save predictions for inspection
     predictions_file = output_dir / "predictions.json"
