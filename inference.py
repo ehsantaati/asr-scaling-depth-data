@@ -192,8 +192,10 @@ def save_inference_results(
     
     # Log individual dataset metrics
     for ds_name, ds_metrics in metrics.items():
-        if "wer" in ds_metrics:
+        if isinstance(ds_metrics, dict) and "wer" in ds_metrics:
             logging.info(f"WER for {ds_name}: {ds_metrics['wer']}")
+        elif ds_name == "wer":
+            logging.info(f"WER for combined dataset: {ds_metrics}")
 
     # Also save predictions for inspection
     predictions_file = output_dir / "predictions.json"
