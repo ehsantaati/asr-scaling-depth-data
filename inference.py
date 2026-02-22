@@ -112,7 +112,29 @@ def main():
     logging.info(f"Model training mode: {model.training} (Should be False)")
     
     # 4. Prepare Evaluation Datasets
-    # 4 & 5. Prepare and Evaluate Datasets Independently
+    # 4. & 5. Prepare and Evaluate Datasets Independently
+    all_metrics = evaluate_datasets(
+        config=config,
+        model=model,
+        processor=processor,
+        batch_size=batch_size,
+        device=device,
+        output_dir=output_dir,
+        model_path=model_path,
+        config_path=args.config_path
+    )
+
+def evaluate_datasets(
+    config,
+    model,
+    processor,
+    batch_size,
+    device,
+    output_dir,
+    model_path,
+    config_path=None,
+    training_time=None
+):
     logging.info("Preparing and evaluating datasets independently...")
     
     all_metrics = {}
@@ -150,17 +172,22 @@ def main():
         all_predictions[dataset_name] = predictions
         all_references[dataset_name] = references
     
+    # Save Results
+    # Construct combined dataset name string from evaluated sets
+    combined_dataset_name = f"{'+'.join([d.name for d in config.get_eval_sets()])}_{config.eval_dataset_args.split}"
     
-    # 6. Save Results
     save_inference_results(
         output_dir,
         all_metrics,
         all_predictions,
         all_references,
         model_path,
-        args.config_path,
-        dataset_name=f"{'+'.join([d['name'] for d in config.eval_sets])}_{config.eval_dataset_args.split}"
+        config_path=config_path,
+        dataset_name=combined_dataset_name,
+        training_time=training_time
     )
+
+    return all_metrics
 
 
 def save_inference_results(

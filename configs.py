@@ -97,8 +97,9 @@ class TrainConfig(BaseConfig):
     warmup_ratio: float = 0.0
     max_steps: int = 0  # if > 0, overrides num_epochs
 
-    # Evaluation
-    do_eval: bool = True
+    # Evaluation / Train
+    do_train: bool = True
+    do_predict: bool = True
     eval_steps: int = 1000
 
     def get_train_sets(self) -> List[types.DatasetConfig]:

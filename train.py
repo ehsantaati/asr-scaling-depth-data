@@ -21,7 +21,7 @@ from transformers import (
 )
 
 from utils import prepare_dataset, DataCollatorSpeechSeq2SeqWithPadding, WhisperDataproc
-from inference import run_inference_pipeline, run_inference_map, save_inference_results
+from inference import run_inference_pipeline, run_inference_map, save_inference_results, evaluate_datasets
 from data import datasets, registry, types, partitioning
 from configs import BaseConfig, TrainConfig, LoraConfigArgs
 
@@ -287,7 +287,10 @@ def main():
                 weight_decay=config.weight_decay,
                 fp16=config.fp16,
                 logging_steps=25,
-                eval_strategy="steps" if config.do_eval else "no",
+                do_train=config.do_train,
+                do_eval=config.do_train,
+                do_predict=config.do_predict,
+                eval_strategy="steps" if config.do_train else "no",
                 eval_steps=config.eval_steps,
                 save_strategy="no", # Save only at end to save space
                 report_to=["wandb", "tensorboard"],
@@ -305,96 +308,71 @@ def main():
             )
 
             # 4. Train
-            if config.do_eval:
+            if config.do_train:
                 logging.info("Running initial evaluation...")
                 metrics = trainer.evaluate()
                 logging.info(f"Initial metrics: {metrics}")
 
-            train_result = trainer.train()
-            training_time = train_result.metrics.get("train_runtime")
-            logging.info(f"Training completed in {training_time} seconds.")
-            
-            # 5. Run Inference
-            logging.info("Running post-training inference on EVAL sets...")
-            
-            # Prepare evaluation dataset
-            eval_dataset = prepare_dataset(
-                config.get_eval_sets(), config.eval_dataset_args
-            )
-            
-            # Ensure model is on correct device
-            device = trainer.args.device
-            
-            if config.use_fast_inference:
-                logging.info("Using FAST inference mode (dataset.map)...")
-                metrics, predictions, references = run_inference_map(
-                    model,
-                    processor,
-                    eval_dataset,
-                    batch_size=config.eval_batch_size,
-                    language=config.language,
-                    num_workers=config.num_inference_workers
-                )
-            else:
-                logging.info("Using PIPELINE inference mode...")
-                metrics, predictions, references = run_inference_pipeline(
-                    model, 
-                    processor, 
-                    eval_dataset, 
-                    device, 
-                    batch_size=config.eval_batch_size,
-                    language=config.language
-                )
+            training_time = 0
+            if config.do_train:
+                train_result = trainer.train()
+                training_time = train_result.metrics.get("train_runtime", 0)
+                logging.info(f"Training completed in {training_time} seconds.")
+                
+                # 5. Merge and Save Final Model
+                if config.lora_config is not None:
+                    logging.info("Merging LoRA adapters into base model before saving...")
+                    model = model.merge_and_unload()
+                    trainer.model = model
+                
+                # Ensure config matches training args
+                if hasattr(model, "config"):
+                    model.config.dropout = config.dropout
+                    
+                trainer.save_model()
+                
+                # Save processor (tokenizer) alongside model for self-contained checkpoints
+                processor.save_pretrained(str(output_dir))
 
-            # 6. Merge and Save Final Model
-            if config.lora_config is not None:
-                logging.info("Merging LoRA adapters into base model before saving...")
-                model = model.merge_and_unload()
-                trainer.model = model
-            
-            # Ensure config matches training args
-            if hasattr(model, "config"):
-                model.config.dropout = config.dropout
+            # 6. Run Inference
+            if config.do_predict:
+                logging.info("Running post-training inference on EVAL sets...")
                 
-            trainer.save_model()
-            
-            # Save processor (tokenizer) alongside model for self-contained checkpoints
-            processor.save_pretrained(str(output_dir))
-            
-            # Save metrics and predictions using the shared function
-            save_inference_results(
-                output_dir,
-                metrics,
-                predictions,
-                references,
-                model_path=output_dir, # In train.py, the model is in the output_dir
-                dataset_name=f"{'+'.join([d['name'] for d in config.eval_sets])}_{config.eval_dataset_args.split}",
-                training_time=training_time
-            )
-            
-            # Log to WandB and TensorBoard
-            if wandb.run is not None:
-                # wandb.log({f"inference/{k}": v for k, v in metrics.items()})
+                # Setup TensorBoard writer once
+                from torch.utils.tensorboard import SummaryWriter
+                tb_writer = SummaryWriter(log_dir=str(output_dir / "runs"))
                 
-                # Create a summary table for WER
-                # Construct dataset name from config
-                eval_dataset_names = [ds["name"] for ds in config.eval_sets]
-                eval_dataset_name = "+".join(eval_dataset_names) if eval_dataset_names else "evaluation"
+                # Setup WandB table for WER summary
+                if wandb.run is not None:
+                    wer_table = wandb.Table(columns=["Dataset", "WER"])
                 
-                table = wandb.Table(columns=["Dataset", "WER"])
-                table.add_data(eval_dataset_name, metrics["wer"])
-                wandb.log({"inference/wer_summary": table})
-            
-            # For TensorBoard, we can use the trainer's callback if available, or just rely on WandB for custom metrics
-            # But since the trainer loop is done, we might need manual logging.
-            # However, standard training metrics are already logged.
-            # Let's try to use the SummaryWriter from the trainer's callback if accessible, or create a new one.
-            # A simple way is to use torch.utils.tensorboard.SummaryWriter
-            from torch.utils.tensorboard import SummaryWriter
-            tb_writer = SummaryWriter(log_dir=str(output_dir / "runs"))
-            for k, v in metrics.items():
-                tb_writer.add_scalar(f"inference/{k}", v, global_step=trainer.state.global_step)
-            tb_writer.close()
+                # Use evaluate_datasets from inference.py to evaluate all sets and save results identically
+                all_metrics = evaluate_datasets(
+                    config=config,
+                    model=model,
+                    processor=processor,
+                    batch_size=config.eval_batch_size,
+                    device=trainer.args.device,
+                    output_dir=output_dir,
+                    model_path=output_dir,
+                    training_time=training_time
+                )
+                
+                # Log metrics for each dataset to WandB and TensorBoard separately
+                for dataset_name, metrics in all_metrics.items():
+                    if wandb.run is not None:
+                        wer_table.add_data(dataset_name, metrics.get("wer", 0.0))
+                        
+                        # Optional: Log dataset-specific metrics over time
+                        wandb.log({f"inference/{dataset_name}_wer": metrics.get("wer", 0.0)}, commit=False)
+                    
+                    for k, v in metrics.items():
+                        tb_writer.add_scalar(f"inference/{dataset_name}_{k}", v, global_step=trainer.state.global_step)
+                        
+                if wandb.run is not None:
+                    wandb.log({"inference/wer_summary": wer_table})
+
+                tb_writer.close()
 
             # Finish WandB run to ensure next iteration starts a new one
             if wandb.run is not None:

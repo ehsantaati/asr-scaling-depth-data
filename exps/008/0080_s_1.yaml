@@ -4,20 +4,26 @@ language: "en"
 task: "transcribe"
 
 train_sets:
-  - name: "speechcolab-gigaspeech-m"
+  - name: "voxpopuli-en"
+    streaming: true
 
 train_dataset_args:
   max_audio_duration_secs: 30
 
 val_sets:
-  - name: "speechcolab-gigaspeech-m"
+  - name: "voxpopuli-en"
+    streaming: true
 
 val_dataset_args:
   max_audio_duration_secs: 30
   max_samples: -1
 
 eval_sets:
-  - name: "speechcolab-gigaspeech-m"
+  - name: "voxpopuli-en"
+    streaming: true
+  - name: "voxpopuli-en-accented"
+    streaming: true
+
 
 eval_dataset_args:
   max_audio_duration_secs: 30
@@ -58,7 +64,7 @@ target_modules:
   - "model.decoder.layers.0"
 
 # Training
-output_dir: "outputs/gigaspeech/008/00804"
+output_dir: "outputs/voxpopuli/008/0080/inference"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1
@@ -75,7 +81,10 @@ activation_dropout: 0.0
 
 weight_decay: 0.1
 
-# Evaluation
-do_eval: true
+
 eval_steps: 1000
 eval_batch_size: 16
+
+do_train: true
+do_predict: true
+
