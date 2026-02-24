@@ -80,6 +80,5 @@ dataloader_num_workers: 8
 strict_reproducibility: true
 
 # Evaluation
-do_eval: true
 eval_steps: 1000
 eval_batch_size: 16

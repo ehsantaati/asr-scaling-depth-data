@@ -1,4 +1,4 @@
-model_id: "/mnt/asr-data-scaling/outputs/voxpopuli/008/0081/0081_frac_1.0_subset_0"
+model_id: "openai/whisper-medium"
 language: "en"
 task: "transcribe"
 
@@ -17,4 +17,4 @@ num_inference_workers: 0
 
 fp16: true
 
-output_dir: "/mnt/asr-data-scaling/outputs/voxpopuli/008/0081/0081_frac_1.0_subset_0/inference"
+output_dir: "/mnt/asr-data-scaling/outputs/voxpopuli/000"

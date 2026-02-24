@@ -36,19 +36,24 @@ target_modules:
   - "proj_out"
 
 # Training
-output_dir: "outputs/voxpopuli/002/002_s"
+output_dir: "outputs/voxpopuli/001/0010"
 num_epochs: 1
-batch_size: 16
-grad_accum_steps: 1
-learning_rate: 1e-5
-warmup_steps: 50
-fp16: true
-seed: 42
-dataloader_num_workers: 8
-strict_reproducibility: true
+
+dropout: 0.0
+attention_dropout: 0.0
+activation_dropout: 0.0
 
 weight_decay: 0.1
 
+batch_size: 16
+grad_accum_steps: 1
+learning_rate: 1e-5
+warmup_ratio: 0.01
+fp16: true
+data_seed: 42
+dataloader_num_workers: 8
+strict_reproducibility: true
+
 # Evaluation
-eval_steps: 2000
+eval_steps: 1000
 eval_batch_size: 16
