@@ -66,6 +66,12 @@ class TrainConfig(BaseConfig):
     attention_dropout: float = 0.0
     activation_dropout: float = 0.0
     weight_decay: float = 0.0
+    
+    # Layer-Specific Dropout (overrides standard dropout for indicated decoder layers)
+    layer_specific_dropout: float = 0.0
+    layer_specific_attention_dropout: float = 0.0
+    layer_specific_activation_dropout: float = 0.0
+    layer_specific_dropout_layers: Optional[List[int]] = None
 
     # Data parameters
     train_sets: List[Dict[str, Any]] = simple_parsing.list_field()

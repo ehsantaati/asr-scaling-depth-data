@@ -147,6 +147,23 @@ def main():
             # Log dropout
             logging.info(f"Initialized model with dropout={config.dropout}, attention_dropout={config.attention_dropout}, activation_dropout={config.activation_dropout}")
             logging.info(f"Model config dropout={model.config.dropout}, attention_dropout={model.config.attention_dropout}, activation_dropout={model.config.activation_dropout}")
+            
+            # Apply layer-specific dropout if configured
+            if config.layer_specific_dropout_layers:
+                num_layers_applied = 0
+                for layer_idx in config.layer_specific_dropout_layers:
+                    if layer_idx < len(model.model.decoder.layers):
+                        layer = model.model.decoder.layers[layer_idx]
+                        layer.dropout = config.layer_specific_dropout
+                        layer.activation_dropout = config.layer_specific_activation_dropout
+                        layer.self_attn.dropout = config.layer_specific_attention_dropout
+                        layer.encoder_attn.dropout = config.layer_specific_attention_dropout
+                        num_layers_applied += 1
+                    else:
+                        logging.warning(f"Requested layer-specific dropout for layer {layer_idx}, but decoder only has {len(model.model.decoder.layers)} layers.")
+                logging.info(f"Applied layer-specific dropout to {num_layers_applied} decoder layers: {config.layer_specific_dropout_layers}")
+                logging.info(f"Layer-specific dropout values - dropout: {config.layer_specific_dropout}, attention: {config.layer_specific_attention_dropout}, activation: {config.layer_specific_activation_dropout}")
+
             model.generation_config.forced_decoder_ids = None
             model.generation_config.suppress_tokens = []
 

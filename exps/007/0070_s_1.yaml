@@ -61,7 +61,7 @@ target_modules:
   - "model.decoder.layers.0"
 
 # Training
-output_dir: "outputs/voxpopuli/007/0070"
+output_dir: "outputs/voxpopuli/007/0070_r"
 num_epochs: 1
 
 dropout: 0.0
@@ -69,6 +69,11 @@ attention_dropout: 0.0
 activation_dropout: 0.0
 
 weight_decay: 0.1
+
+layer_specific_dropout: 0.1
+layer_specific_attention_dropout: 0.0
+layer_specific_activation_dropout: 0.0
+layer_specific_dropout_layers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
 batch_size: 16
 grad_accum_steps: 1
