@@ -94,7 +94,7 @@ class TrainConfig(BaseConfig):
     num_subsets: int = 1
 
     # Training parameters
-    num_epochs: float = 3.0
+    num_epochs: Optional[float] = 3.0
     batch_size: int = 4
     dataloader_num_workers: int = 4
     grad_accum_steps: int = 1

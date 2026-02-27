@@ -246,13 +246,20 @@ def main():
             train_dataset_proc = WhisperDataproc(train_dataset, processor, max_label_length=max_label_length)
 
                         # Calculate max_steps based on num_epochs, batch size, and gradient accumulation
-            num_update_steps_per_epoch = len(train_dataset) // (config.batch_size * config.grad_accum_steps)
+            if config.num_epochs is None:
+                logging.info("num_epochs is None. Calculating steps based on FULL dataset size.")
+                num_update_steps_per_epoch = total_train_samples // (config.batch_size * config.grad_accum_steps)
+                calculated_max_steps = num_update_steps_per_epoch
+                config.num_epochs = 1.0  # Patch to 1.0 for HF Trainer compatibility
+            else:
+                num_update_steps_per_epoch = len(train_dataset) // (config.batch_size * config.grad_accum_steps)
+                calculated_max_steps = int(num_update_steps_per_epoch * config.num_epochs)
+
             if num_update_steps_per_epoch == 0:
                  # If dataset is smaller than batch * grad_accum, we at least have 1 step if possible, or 0.
                  # Warn about this.
                  logging.warning(f"Dataset length ({len(train_dataset)}) is smaller than effective batch size ({config.batch_size * config.grad_accum_steps}).")
             
-            calculated_max_steps = int(num_update_steps_per_epoch * config.num_epochs)
             logging.info(f"Calculated max_steps: {calculated_max_steps} (Epochs: {config.num_epochs}, Steps/Epoch: {num_update_steps_per_epoch}, Dataset Len: {len(train_dataset)})")
 
             # Calculate warmup steps
