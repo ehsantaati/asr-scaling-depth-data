@@ -246,8 +246,8 @@ def main():
             train_dataset_proc = WhisperDataproc(train_dataset, processor, max_label_length=max_label_length)
 
                         # Calculate max_steps based on num_epochs, batch size, and gradient accumulation
-            if config.num_epochs is None:
-                logging.info("num_epochs is None. Calculating steps based on FULL dataset size.")
+            if config.num_epochs <= 0:
+                logging.info("num_epochs <= 0. Calculating steps based on FULL dataset size.")
                 num_update_steps_per_epoch = total_train_samples // (config.batch_size * config.grad_accum_steps)
                 calculated_max_steps = num_update_steps_per_epoch
                 config.num_epochs = 1.0  # Patch to 1.0 for HF Trainer compatibility

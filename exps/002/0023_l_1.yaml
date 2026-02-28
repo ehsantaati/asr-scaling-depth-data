@@ -27,7 +27,7 @@ eval_dataset_args:
   max_samples: -1
 
 # Data scaling
-data_fractions: [0.05]
+data_fractions: [0.01]
 num_subsets: 5
 
 # LoRA (optional, disable for this test)
@@ -40,7 +40,7 @@ target_modules:
   - "proj_out"
 # Training
 output_dir: "outputs/spgispeech_2/002/0023/data_scaling"
-num_epochs: 1
+num_epochs: 0
 batch_size: 16
 grad_accum_steps: 1
 learning_rate: 1e-5
