@@ -250,17 +250,18 @@ def main():
                 logging.info("num_epochs <= 0. Calculating steps based on FULL dataset size.")
                 num_update_steps_per_epoch = total_train_samples // (config.batch_size * config.grad_accum_steps)
                 calculated_max_steps = num_update_steps_per_epoch
-                config.num_epochs = 1.0  # Patch to 1.0 for HF Trainer compatibility
+                effective_num_epochs = 1.0  # Use local variable instead of mutating config
             else:
                 num_update_steps_per_epoch = len(train_dataset) // (config.batch_size * config.grad_accum_steps)
-                calculated_max_steps = int(num_update_steps_per_epoch * config.num_epochs)
+                effective_num_epochs = config.num_epochs
+                calculated_max_steps = int(num_update_steps_per_epoch * effective_num_epochs)
 
             if num_update_steps_per_epoch == 0:
                  # If dataset is smaller than batch * grad_accum, we at least have 1 step if possible, or 0.
                  # Warn about this.
                  logging.warning(f"Dataset length ({len(train_dataset)}) is smaller than effective batch size ({config.batch_size * config.grad_accum_steps}).")
             
-            logging.info(f"Calculated max_steps: {calculated_max_steps} (Epochs: {config.num_epochs}, Steps/Epoch: {num_update_steps_per_epoch}, Dataset Len: {len(train_dataset)})")
+            logging.info(f"Calculated max_steps: {calculated_max_steps} (Epochs: {effective_num_epochs}, Steps/Epoch: {num_update_steps_per_epoch}, Dataset Len: {len(train_dataset)})")
 
             # Calculate warmup steps
             if config.warmup_ratio > 0:
@@ -307,7 +308,7 @@ def main():
                 learning_rate=config.learning_rate,
                 warmup_steps=warmup_steps,
                 max_steps=calculated_max_steps,
-                num_train_epochs=config.num_epochs,
+                num_train_epochs=effective_num_epochs,
                 weight_decay=config.weight_decay,
                 fp16=config.fp16,
                 logging_steps=25,
