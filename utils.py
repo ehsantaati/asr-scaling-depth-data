@@ -10,6 +10,8 @@ from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 
 from data import datasets, registry, types
 
+from tqdm.auto import tqdm
+
 def prepare_dataset(
     data_opts: List[types.DatasetConfig],
     data_args: types.VoiceDatasetArgs,
@@ -50,7 +52,7 @@ def compute_and_save_dataset_metadata(dataset: datasets.SizedIterableDataset, ou
     total_samples = 0
     total_duration_secs = 0.0
     
-    for sample in dataset:
+    for sample in tqdm(dataset):
         total_samples += 1
         if sample.audio is not None:
             total_duration_secs += sample.audio.shape[-1] / sample.sample_rate
