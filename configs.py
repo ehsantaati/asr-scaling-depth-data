@@ -102,6 +102,7 @@ class TrainConfig(BaseConfig):
     warmup_steps: int = 500
     warmup_ratio: float = 0.0
     max_steps: int = 0  # if > 0, overrides num_epochs
+    max_steps_fraction: float = 1.0  # Fraction of the calculated_max_steps to use
 
     # Evaluation / Train
     do_train: bool = True

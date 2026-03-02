@@ -250,6 +250,9 @@ def main():
                 logging.info("num_epochs <= 0. Calculating steps based on FULL dataset size.")
                 num_update_steps_per_epoch = total_train_samples // (config.batch_size * config.grad_accum_steps)
                 calculated_max_steps = num_update_steps_per_epoch
+                if config.max_steps_fraction < 1.0:
+                    calculated_max_steps = int(calculated_max_steps * config.max_steps_fraction)
+                    logging.info(f"Applying max_steps_fraction of {config.max_steps_fraction}, new calculated_max_steps: {calculated_max_steps}")
                 effective_num_epochs = 1.0  # Use local variable instead of mutating config
             else:
                 num_update_steps_per_epoch = len(train_dataset) // (config.batch_size * config.grad_accum_steps)
