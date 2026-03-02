@@ -619,7 +619,7 @@ class Range(SizedIterableDataset):
         except (ValueError, TypeError):
             ds_len = float("inf")
 
-        self._length = num_samples or ds_len
+        self._length = num_samples if num_samples is not None else ds_len
         
         if ds_len != float("inf") and self._length > ds_len:
             warnings.warn(

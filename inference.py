@@ -477,6 +477,17 @@ def run_inference_map(
     tracker = FilterTracker()
     hf_ds = hf_ds.filter(tracker)
 
+    # Check for empty dataset immediately if not streaming
+    if not isinstance(hf_ds, hf_datasets.IterableDataset):
+        actual_count = len(hf_ds)
+        if actual_count == 0:
+             # Distinguish between "empty before filtering" and "filtered out everything"
+             if tracker.total > 0:
+                 raise ValueError(f"Inference dataset '{dataset.name}' is empty AFTER filtering (all {tracker.total} samples were filtered out)! Stopping inference.")
+             else:
+                 raise ValueError(f"Inference dataset '{dataset.name}' is empty (extracted 0 samples)! Stopping inference.")
+        
+        logging.info(f"Inference dataset '{dataset.name}' has {actual_count} samples (Caching used: {tracker.total == 0}).")
 
     logging.info("Running inference using dataset.map...")
     
@@ -514,7 +525,10 @@ def run_inference_map(
         filtered = tracker.total - tracker.passed
         logging.info(f"Filtering Summary: Processed {tracker.total} samples. Kept {tracker.passed}, Filtered {filtered} ({filtered/tracker.total:.2%})")
     else:
-         logging.warning("Filtering Summary: No samples processed by filter (cached or empty?)")
+         if not isinstance(hf_ds, hf_datasets.IterableDataset):
+              logging.info(f"Filtering Summary: Filtered results retrieved from cache. Total samples: {len(hf_ds)}")
+         else:
+              logging.warning("Filtering Summary: No samples processed by filter (cached or empty?)")
     
     # Normalization (Post-processing)
     normalizer = EnglishTextNormalizer({})

@@ -334,6 +334,12 @@ def main():
 
             # 4. Train
             if config.do_train:
+                # Check if training dataset is empty after filtering
+                try:
+                    next(iter(train_dataset_proc))
+                except StopIteration:
+                    raise ValueError(f"Training dataset '{train_dataset.name}' is empty after filtering! Stopping training.")
+
                 logging.info("Running initial evaluation...")
                 metrics = trainer.evaluate()
                 logging.info(f"Initial metrics: {metrics}")
