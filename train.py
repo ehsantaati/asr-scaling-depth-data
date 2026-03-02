@@ -20,7 +20,7 @@ from transformers import (
     WhisperProcessor,
 )
 
-from utils import prepare_dataset, DataCollatorSpeechSeq2SeqWithPadding, WhisperDataproc
+from utils import prepare_dataset, DataCollatorSpeechSeq2SeqWithPadding, WhisperDataproc, compute_and_save_dataset_metadata
 from inference import run_inference_pipeline, run_inference_map, save_inference_results, evaluate_datasets
 from data import datasets, registry, types, partitioning
 from configs import BaseConfig, TrainConfig, LoraConfigArgs
@@ -244,6 +244,9 @@ def main():
             # Wrapper with max length filtering
             max_label_length = getattr(model.config, "max_length", 448)
             train_dataset_proc = WhisperDataproc(train_dataset, processor, max_label_length=max_label_length)
+
+            if config.log_dataset_metadata:
+                compute_and_save_dataset_metadata(train_dataset, output_dir / "dataset_metadata.json")
 
                         # Calculate max_steps based on num_epochs, batch size, and gradient accumulation
             if config.num_epochs <= 0:

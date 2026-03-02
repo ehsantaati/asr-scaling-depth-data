@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -36,6 +37,36 @@ def prepare_dataset(
         dataset = datasets.Range(dataset, data_args.max_samples)
         
     return dataset
+
+
+def compute_and_save_dataset_metadata(dataset: datasets.SizedIterableDataset, output_path: str) -> Dict[str, Any]:
+    """
+    Iterates over the dataset to compute the total number of samples
+    and the exact total audio duration in seconds.
+    Saves the metrics to the specified output_path as a JSON file.
+    """
+    logging.info(f"Computing dataset metadata for {dataset.name} (this may take a while for large streaming datasets)...")
+    
+    total_samples = 0
+    total_duration_secs = 0.0
+    
+    for sample in dataset:
+        total_samples += 1
+        if sample.audio is not None:
+            total_duration_secs += sample.audio.shape[-1] / sample.sample_rate
+
+    metadata = {
+        "dataset_name": dataset.name,
+        "total_samples": total_samples,
+        "total_duration_secs": round(total_duration_secs, 2),
+        "total_duration_hours": round(total_duration_secs / 3600, 4)
+    }
+    
+    with open(output_path, "w") as f:
+        json.dump(metadata, f, indent=4)
+        
+    logging.info(f"Dataset metadata saved to {output_path}: {metadata}")
+    return metadata
 
 
 class WhisperDataproc(datasets.Dataproc):

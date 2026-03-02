@@ -209,26 +209,26 @@ class VoiceDataset(SizedIterableDataset):
             actual_length += 1
             sample = self._get_sample(row)
             if sample is None:
-                # print(f"Sample is None in dataset {self.name} for row {row}")
+            # print(f"Sample is None in dataset {self.name} for row {row}")
                 none_sample_count += 1
                 bad_samples += 1
                 continue
 
             if len(sample.text.strip()) == 0:
-                # print(
-                #     f"Sample has empty text in dataset {self.name} for row {row}"
-                # )
+            # print(
+            #     f"Sample has empty text in dataset {self.name} for row {row}"
+            # )
                 empty_text_count += 1
                 bad_samples += 1
                 continue
 
             if sample.audio is None:
-                # print(f"Audio is None for sample {sample}")
+            # print(f"Audio is None for sample {sample}")
                 none_audio_count += 1
                 bad_samples += 1
                 continue
             if sample.audio.shape[-1] == 0:
-                # print(f"Audio length is 0 for sample {sample}")
+            # print(f"Audio length is 0 for sample {sample}")
                 empty_audio_count += 1
                 bad_samples += 1
                 continue
@@ -241,7 +241,6 @@ class VoiceDataset(SizedIterableDataset):
                 continue
 
             yield sample
-
         error_summary = []
         if none_sample_count > 0:
             error_summary.append(f"None samples: {none_sample_count}")
@@ -326,6 +325,12 @@ class GenericDataset(VoiceDataset):
                     audio_field=config.audio_field,
                     features=config.features,
                 )
+                if split.num_samples is not None:
+                    if hasattr(ds, "take"):
+                        ds = ds.take(split.num_samples)
+                    else:
+                        ds = ds.select(range(min(len(ds), split.num_samples)))
+                
                 dsets.append(ds)
                 total_samples += split.num_samples
         assert (

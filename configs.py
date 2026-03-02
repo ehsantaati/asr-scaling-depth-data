@@ -108,6 +108,7 @@ class TrainConfig(BaseConfig):
     do_train: bool = True
     do_predict: bool = True
     eval_steps: int = 1000
+    log_dataset_metadata: bool = True
 
     def get_train_sets(self) -> List[types.DatasetConfig]:
         return [types.DatasetConfig.from_dict(ds) for ds in self.train_sets]
