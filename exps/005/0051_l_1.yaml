@@ -63,7 +63,7 @@ target_modules:
 - "model.decoder.layers.22.fc2"
 
 # Training
-output_dir: "outputs/voxpopuli/005/0051/data_scaling"
+output_dir: "outputs/spgispeech_2/005/0051/data_scaling"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1

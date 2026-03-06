@@ -16,14 +16,16 @@ def prepare_dataset(
     data_opts: List[types.DatasetConfig],
     data_args: types.VoiceDatasetArgs,
     max_samples: Optional[int] = None,
+    raw_dicts: Optional[List[Dict[str, Any]]] = None,
 ) -> datasets.SizedIterableDataset:
     data_sets = []
-    for ds_config in data_opts:
+    for i, ds_config in enumerate(data_opts):
         # Register if not already registered (or just ensure it's in the map)
         if ds_config.name not in registry.DATASET_MAP:
              registry.register_datasets([ds_config])
         
-        ds = registry.create_dataset(ds_config.name, data_args, verbose=True)
+        override_dict = raw_dicts[i] if raw_dicts else None
+        ds = registry.create_dataset(ds_config.name, data_args, verbose=True, config_override=override_dict)
         data_sets.append(ds)
 
     # Interleave if multiple datasets

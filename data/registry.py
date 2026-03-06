@@ -38,6 +38,7 @@ def create_dataset(
     name: str,
     args: types.VoiceDatasetArgs,
     verbose: bool = False,
+    config_override: Optional[types.DatasetConfig] = None,
 ) -> datasets.GenericDataset:
     if name == "dummy":
         return datasets.LibriSpeechDummyDataset(args)
@@ -49,6 +50,8 @@ def create_dataset(
         config = DATASET_MAP[temp]
         configs.insert(0, config)
         temp = config.base
+    if config_override is not None:
+        configs.append(config_override)
     # Set the root config, and then apply any non-None overrides from the subclasses.
     merged_config = _merge_configs(configs)
     # Sanity check.
