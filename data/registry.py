@@ -38,7 +38,7 @@ def create_dataset(
     name: str,
     args: types.VoiceDatasetArgs,
     verbose: bool = False,
-    config_override: Optional[types.DatasetConfig] = None,
+    config_override=None,
 ) -> datasets.GenericDataset:
     if name == "dummy":
         return datasets.LibriSpeechDummyDataset(args)
@@ -50,10 +50,15 @@ def create_dataset(
         config = DATASET_MAP[temp]
         configs.insert(0, config)
         temp = config.base
-    if config_override is not None:
+    if config_override is not None and not isinstance(config_override, dict):
         configs.append(config_override)
     # Set the root config, and then apply any non-None overrides from the subclasses.
     merged_config = _merge_configs(configs)
+    
+    if config_override is not None and isinstance(config_override, dict):
+        valid_keys = {f.name for f in dataclasses.fields(merged_config)}
+        filtered_override = {k: v for k, v in config_override.items() if k in valid_keys}
+        merged_config = dataclasses.replace(merged_config, **filtered_override)
     # Sanity check.
     if not merged_config.path:
         raise ValueError(f"Dataset {name} has no path")
