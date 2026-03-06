@@ -4,33 +4,31 @@ language: "en"
 task: "transcribe"
 
 train_sets:
-  - name: "voxpopuli-en"
-    streaming: true
+  - name: "spgispeech_2"
+    streaming: false
 
 train_dataset_args:
   max_audio_duration_secs: 30
 
 val_sets:
-  - name: "voxpopuli-en"
-    streaming: true
+  - name: "spgispeech_2"
+    streaming: false
 
 val_dataset_args:
   max_audio_duration_secs: 30
   max_samples: -1
 
 eval_sets:
-  - name: "voxpopuli-en"
-    streaming: true
-  - name: "voxpopuli-en-accented"
-    streaming: true
+  - name: "spgispeech_2"
+    streaming: false
 
 eval_dataset_args:
   max_audio_duration_secs: 30
   max_samples: -1
 
 # Data scaling
-data_fractions: [1.0]
-num_subsets: 1
+data_fractions: [0.1]
+num_subsets: 3
 
 # LoRA
 lora_config:
@@ -65,7 +63,7 @@ target_modules:
 - "model.decoder.layers.22.fc2"
 
 # Training
-output_dir: "outputs/voxpopuli/005/0051"
+output_dir: "outputs/voxpopuli/005/0051/data_scaling"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1

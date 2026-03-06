@@ -24,8 +24,8 @@ eval_dataset_args:
   max_samples: -1
 
 # Data scaling
-data_fractions: [0.2]
-num_subsets: 2
+data_fractions: [0.5]
+num_subsets: 1
 
 # LoRA
 lora_config:
