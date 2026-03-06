@@ -92,7 +92,7 @@ def main():
 
     # Prepare validation dataset (fixed across experiments)
     val_dataset = prepare_dataset(
-        config.get_val_sets(), config.val_dataset_args
+        config.get_val_sets(), config.val_dataset_args, raw_dicts=config.val_sets
     )
     
     val_dataset_proc = WhisperDataproc(val_dataset, processor)
@@ -100,7 +100,7 @@ def main():
     # Determine total training samples from full dataset to calculate fractions
     # We need to instantiate the full train dataset once to get its length
     full_train_dataset = prepare_dataset(
-        config.get_train_sets(), config.train_dataset_args
+        config.get_train_sets(), config.train_dataset_args, raw_dicts=config.train_sets
     )
     total_train_samples = len(full_train_dataset)
     logging.info(f"Total available training samples: {total_train_samples}")
@@ -231,7 +231,8 @@ def main():
             base_train_dataset = prepare_dataset(
                 config.get_train_sets(), 
                 train_args,
-                max_samples=None # Do not limit yet
+                max_samples=None, # Do not limit yet
+                raw_dicts=config.train_sets
             )
             
             # Wrap with PartitionedDataset
