@@ -24,8 +24,8 @@ eval_dataset_args:
   max_samples: -1
 
 # Data scaling
-data_fractions: [1.0]
-num_subsets: 1
+data_fractions: [0.2]
+num_subsets: 2
 
 # LoRA
 lora_config:
@@ -49,7 +49,7 @@ target_modules:
 - "model.decoder.layers.23.fc2"
 
 # Training
-output_dir: "outputs/spgispeech_2/004/0041"
+output_dir: "outputs/spgispeech_2/004/0041/data_scaling"
 num_epochs: 1
 batch_size: 16
 grad_accum_steps: 1
@@ -60,7 +60,9 @@ data_seed: 42
 dataloader_num_workers: 8
 strict_reproducibility: true
 
+
+max_steps_fraction: 1.0
+log_dataset_metadata: true
 # Evaluation
-do_eval: true
 eval_steps: 1000
 eval_batch_size: 16
