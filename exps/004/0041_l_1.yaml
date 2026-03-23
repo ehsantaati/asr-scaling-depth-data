@@ -4,27 +4,33 @@ language: "en"
 task: "transcribe"
 
 train_sets:
-  - name: "spgispeech_2"
+  - name: "speechcolab-gigaspeech-m"
+    streaming: false
 
 train_dataset_args:
   max_audio_duration_secs: 30
 
 val_sets:
-  - name: "spgispeech_2"
+  - name: "speechcolab-gigaspeech-m"
+    streaming: false
 
 val_dataset_args:
   max_audio_duration_secs: 30
   max_samples: -1
 
 eval_sets:
-  - name: "spgispeech_2"
+  - name: "speechcolab-gigaspeech-m"
+    streaming: false
+
 
 eval_dataset_args:
   max_audio_duration_secs: 30
   max_samples: -1
 
+
+
 # Data scaling
-data_fractions: [0.5]
+data_fractions: [.5]
 num_subsets: 1
 
 # LoRA
@@ -49,8 +55,8 @@ target_modules:
 - "model.decoder.layers.23.fc2"
 
 # Training
-output_dir: "outputs/spgispeech_2/004/0041/data_scaling"
-num_epochs: 1
+output_dir: "outputs/gigaspeech/004/0041/data_scaling"
+num_epochs: 0
 batch_size: 16
 grad_accum_steps: 1
 learning_rate: 1e-5
@@ -59,7 +65,6 @@ fp16: true
 data_seed: 42
 dataloader_num_workers: 8
 strict_reproducibility: true
-
 
 max_steps_fraction: 1.0
 log_dataset_metadata: true

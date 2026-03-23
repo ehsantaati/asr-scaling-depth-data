@@ -1,10 +1,9 @@
-model_id: "openai/whisper-medium"
+model_id: "/mnt/asr-data-scaling/outputs/gigaspeech/002/0023/data_scaling/data_scaling_frac_0.2_subset_1"
 language: "en"
 task: "transcribe"
 
 eval_sets:
-  - name: "voxpopuli-en"
-  - name: "voxpopuli-en-accented"
+  - name: "speechcolab-gigaspeech-m"
 
 eval_batch_size: 16
 
@@ -17,4 +16,4 @@ num_inference_workers: 0
 
 fp16: true
 
-output_dir: "/mnt/asr-data-scaling/outputs/voxpopuli/000"
+output_dir: "/mnt/asr-data-scaling/outputs/gigaspeech/002/0023/data_scaling/data_scaling_frac_0.2_subset_1/inference"
