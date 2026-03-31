@@ -28,7 +28,7 @@ eval_dataset_args:
 
 # Data scaling
 data_fractions: [0.2]
-num_subsets: 5
+num_subsets: 2
 
 # LoRA (optional, disable for this test)
 lora_config:

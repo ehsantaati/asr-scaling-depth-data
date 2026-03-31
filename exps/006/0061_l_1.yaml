@@ -27,7 +27,7 @@ eval_dataset_args:
   max_samples: -1
 
 # Data scaling
-data_fractions: [0.5]
+data_fractions: [1.0]
 num_subsets: 1
 
 # LoRA
@@ -174,13 +174,13 @@ target_modules:
 
 # Training
 output_dir: "outputs/spgispeech_2/006/0061/data_scaling"
-num_epochs: 1
+num_epochs: 0
 batch_size: 16
 grad_accum_steps: 1
 learning_rate: 1e-5
 warmup_ratio: 0.01
 fp16: true
-seed: 12345
+seed: 42
 data_seed: 42
 dataloader_num_workers: 8
 strict_reproducibility: true
