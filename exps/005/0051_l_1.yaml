@@ -63,7 +63,7 @@ target_modules:
 - "model.decoder.layers.22.fc2"
 
 # Training
-output_dir: "outputs/spgispeech_2/005/0051/data_scaling"
+output_dir: "outputs/spgispeech_2/duration"
 num_epochs: 0
 batch_size: 16
 grad_accum_steps: 1
@@ -74,7 +74,7 @@ data_seed: 42
 seed: 12345
 dataloader_num_workers: 8
 strict_reproducibility: true
-log_dataset_metadata: false
+log_dataset_metadata: true
 # Evaluation
 eval_steps: 1000
 eval_batch_size: 16

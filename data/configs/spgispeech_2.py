@@ -7,7 +7,7 @@ SPGISPEECH_2_CONFIG = types.DatasetConfig(
     audio_field="audio",
     streaming=False,
     splits=[
-        types.DatasetSplitConfig(name="train", num_samples=156753),
+        types.DatasetSplitConfig(name="train", num_samples=512724),
         types.DatasetSplitConfig(
             name="validation", num_samples=6195, split=types.DatasetSplit.VALIDATION
         ),
