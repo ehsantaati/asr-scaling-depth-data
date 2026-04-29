@@ -188,6 +188,6 @@ wandb/*
 .vscode/*
 logs/*
 archive/*
-notebooks/
+notebooks/*
 
 
