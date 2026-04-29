@@ -189,5 +189,5 @@ wandb/*
 logs/*
 archive/*
 notebooks/*
-
+exps/
 
