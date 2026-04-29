@@ -1,5 +1,6 @@
 # ASR Depth-Data Scaling
-This repository accompanies the paper “Model Scaling for Speech Recognition: Data and Depth Trade-offs in Domain-Specific Fine-Tuning.” The work presents a systematic empirical study of how adaptation depth, training data availability, and optimization budget jointly influence performance in end-to-end automatic speech recognition (ASR).
+This repository accompanies the paper **Model Scaling for Speech Recognition: Data and Depth Trade-offs in Domain-Specific Fine-Tuning**.
+The work presents a systematic empirical study of how adaptation depth, training data availability, and optimization budget jointly influence performance in end-to-end automatic speech recognition (ASR).
 
 Using Whisper-based models, we evaluate layer-wise decoder fine-tuning under both full-parameter and parameter-efficient (LoRA) settings across three datasets: SPGISpeech 2.0, VoxPopuli, and GigaSpeech. The study reveals that performance is not governed by data or model capacity alone, but by their interaction with optimization, where deeper adaptation improves performance but becomes unstable under limited data, and parameter-efficient methods can achieve competitive results with significantly fewer trainable parameters.
 
