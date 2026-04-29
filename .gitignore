@@ -180,3 +180,14 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 .DS_Store
+*.code-workspace
+
+outputs/*
+wandb/*
+
+.vscode/*
+logs/*
+archive/*
+notebooks/*
+exps/
+
