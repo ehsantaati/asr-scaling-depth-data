@@ -1,0 +1,112 @@
+# ==============================================================================
+# Full Fine-Tuning Template Configuration
+# ==============================================================================
+
+# Model and Task Configuration
+model_id: "openai/whisper-medium"   # Path to pre-trained model or Hugging Face model ID
+language: "en"                      # Target language for transcription
+task: "transcribe"                  # Task to perform (e.g., "transcribe", "translate")
+
+# ------------------------------------------------------------------------------
+# Dataset Configuration
+# ------------------------------------------------------------------------------
+
+# Training Sets
+train_sets:
+  - name: "speechcolab-gigaspeech-m"
+    streaming: false                # Set to true for streaming large datasets
+
+train_dataset_args:
+  max_audio_duration_secs: 30       # Filter out audio longer than this (seconds)
+
+# Validation Sets (Used during training for evaluation)
+val_sets:
+  - name: "speechcolab-gigaspeech-m"
+    streaming: false
+
+val_dataset_args:
+  max_audio_duration_secs: 30
+  max_samples: -1                   # Set a specific number to limit samples, -1 for all
+
+# Evaluation Sets (Can be used for separate evaluation runs)
+eval_sets:
+  - name: "speechcolab-gigaspeech-m"
+    streaming: false
+
+eval_dataset_args:
+  max_audio_duration_secs: 30
+  max_samples: -1
+
+# Data Scaling / Subsetting
+data_fractions: [1.0]               # Fraction of data to use (e.g., 0.1 for 10%, 1.0 for 100%)
+num_subsets: 1                      # Number of subsets to create for data fractioning
+
+# ------------------------------------------------------------------------------
+# Full Fine-Tuning Specific Options
+# ------------------------------------------------------------------------------
+
+# Target modules for full fine-tuning. Typically you might fine-tune only specific layers.
+# Leave commented to fine-tune the entire model, or uncomment and specify to freeze parts.
+target_modules:
+  - "proj_out"
+  - "model.decoder.layer_norm"
+  - "model.decoder.layers.23"
+  - "model.decoder.layers.22"
+  - "model.decoder.layers.21"
+  - "model.decoder.layers.20"
+  - "model.decoder.layers.19"
+  - "model.decoder.layers.18"
+  - "model.decoder.layers.17"
+  - "model.decoder.layers.16"
+  - "model.decoder.layers.15"
+  - "model.decoder.layers.14"
+  - "model.decoder.layers.13"
+  - "model.decoder.layers.12"
+  - "model.decoder.layers.11"
+  - "model.decoder.layers.10"
+  - "model.decoder.layers.9"
+  - "model.decoder.layers.8"
+  - "model.decoder.layers.7"
+  - "model.decoder.layers.6"
+  - "model.decoder.layers.5"
+  - "model.decoder.layers.4"
+  - "model.decoder.layers.3"
+  - "model.decoder.layers.2"
+  - "model.decoder.layers.1"
+  - "model.decoder.layers.0"
+
+# ------------------------------------------------------------------------------
+# Training Hyperparameters
+# ------------------------------------------------------------------------------
+output_dir: "outputs/"  # Directory to save model checkpoints and logs
+num_epochs: 0                                 # Number of training epochs (0 means compute-matched: calculates steps based on FULL dataset size)
+
+# Regularization (Uncomment to use)
+# dropout: 0.0
+# attention_dropout: 0.0
+# activation_dropout: 0.0
+weight_decay: 0.1
+
+# Layer-specific Regularization (Uncomment to use)
+# layer_specific_dropout: 0.25
+# layer_specific_attention_dropout: 0.25
+# layer_specific_activation_dropout: 0.25
+# layer_specific_dropout_layers: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+
+# Optimization
+batch_size: 16                        # Batch size per GPU
+grad_accum_steps: 1                   # Number of gradient accumulation steps
+learning_rate: 1e-5                   # Learning rate
+warmup_ratio: 0.01                    # Warmup ratio for learning rate schedule
+
+# Hardware and Reproducibility
+fp16: true                            # Use mixed precision training
+data_seed: 42                         # Seed for data reproducibility
+dataloader_num_workers: 8             # Number of workers for data loading
+strict_reproducibility: true          # Ensure reproducible results
+
+# ------------------------------------------------------------------------------
+# Evaluation Configuration
+# ------------------------------------------------------------------------------
+eval_steps: 1000                      # Evaluate every X steps
+eval_batch_size: 16                   # Evaluation batch size per GPU
