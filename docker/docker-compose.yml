@@ -49,12 +49,31 @@ services:
     env_file:
       - path: ../.env
         required: false
+    # NO `user:` mapping here, deliberately.
+    #
+    # This host runs ROOTLESS Docker (`docker info | grep rootless`), where container
+    # uid 0 is already remapped to the invoking host user. Files the container writes
+    # into /app and /cache/huggingface therefore land owned by that user, which is
+    # what we want. Adding `user: "1002:1002"` makes it *worse*: uid 1002 inside maps
+    # through /etc/subuid (ehsan:231072:65536) to host uid ~232073, which owns nothing
+    # and cannot write the repo or the HF cache at all.
+    #
+    # If you move this to a ROOTFUL Docker daemon, container root is host root and the
+    # opposite applies -- add the mapping there:
+    #   user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"
+    # and keep the HOME/cache-dir variables below, which a non-root uid needs.
+
     environment:
       HF_HOME: /cache/huggingface
       SPGISPEECH2_ROOT: /data/SPGISPeech_2
       PYTHONHASHSEED: "0"
       TOKENIZERS_PARALLELISM: "false"
       WANDB_MODE: offline
+      # Harmless under rootless Docker, required if you ever add a `user:` mapping:
+      # a uid with no /etc/passwd entry has no valid HOME, and numba (pulled in by
+      # librosa) and matplotlib both fail hard when they cannot write their caches.
+      NUMBA_CACHE_DIR: /tmp/numba
+      MPLCONFIGDIR: /tmp/matplotlib
 
     ports:
       - "8888:8888"      # jupyter, for the analysis notebooks
