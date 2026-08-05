@@ -7,7 +7,7 @@ services:
     privileged: true
     pull_policy: never
     volumes:
-      - ..:/workspace:rw
+      - .:/workspace:rw
     ports: 
       - "8888:8888"
     deploy:
