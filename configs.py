@@ -152,6 +152,11 @@ class TrainConfig(BaseConfig):
     eval_steps: int = 250
     eval_on_start: bool = True
     log_dataset_metadata: bool = True
+    # Number of training samples logged before training starts. Doubles as the
+    # non-empty check and as the data-order fingerprint recorded in the manifest.
+    # Costs one extra pass over the head of the stream; set to 0 only if that pass
+    # is prohibitive (it should not be -- see the note in train.py).
+    preview_samples: int = 3
 
     # Periodic trainable-only checkpoints and the best-val-vs-final comparison
     # (action B8 / R2-6c). Enabled on deep full-FT runs only; checkpoints are

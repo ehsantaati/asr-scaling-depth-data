@@ -487,33 +487,41 @@ def main():
                 warmup_steps = config.warmup_steps
                 logging.info(f"Using fixed warmup_steps: {warmup_steps}")
 
-            # Print the first 3 samples of the stream. These lines are also the
-            # data-order fingerprint used by the smoke test to verify that
-            # data_order_seed_mode does what the manifest claims.
-            logging.info("Printing 3 random training samples (Raw)...")
+            # Preview the head of the training stream. This doubles as the
+            # non-empty check and as the data-order fingerprint that the smoke
+            # test's --seed-divergence check compares across runs.
+            #
+            # ONE pass, deliberately. This previously opened three separate
+            # iterators (raw preview, processed preview, and a next(iter(...))
+            # empty-check) plus the Trainer's own. On a streaming dataset each
+            # iterator restarts the shuffle buffer from scratch -- measured at
+            # ~8.5 minutes per startup for VoxPopuli at shuffle_buffer_size=1000
+            # -- so the job spent ~34 minutes filling buffers before its first
+            # optimizer step. WhisperDataproc carries the raw text through as
+            # "reference", so a single pass over train_dataset_proc yields both
+            # the raw and the tokenised view.
             first_sample_texts = []
-            try:
-                for idx, sample in enumerate(train_dataset):
-                    if idx >= 3:
-                        break
-                    first_sample_texts.append(sample.text)
-                    logging.info(f"Raw Sample {idx+1}: {sample.text}")
-            except Exception as e:
-                logging.warning(f"Failed to print raw training samples: {e}")
-
-            logging.info("Printing 3 random training samples (Processed)...")
+            n_preview = max(0, config.preview_samples)
+            logging.info(f"Previewing first {n_preview} training samples (single pass)...")
             try:
                 for idx, sample in enumerate(train_dataset_proc):
-                    if idx >= 3:
+                    if idx >= n_preview:
                         break
-                    # Decode the input_ids to check content
+                    raw = sample.get("reference")
+                    if raw is not None:
+                        first_sample_texts.append(raw)
+                        logging.info(f"Sample {idx+1} (raw): {raw}")
                     if "text_input_ids" in sample:
-                        decoded_text = processor.decode(sample["text_input_ids"], skip_special_tokens=True)
-                        logging.info(f"Proc Sample {idx+1} (Decoded): {decoded_text}")
-                    elif "reference" in sample:
-                        logging.info(f"Proc Sample {idx+1} (Ref): {sample['reference']}")
+                        decoded = processor.decode(sample["text_input_ids"], skip_special_tokens=True)
+                        logging.info(f"Sample {idx+1} (decoded): {decoded}")
             except Exception as e:
-                logging.warning(f"Failed to print processed training samples: {e}")
+                logging.warning(f"Failed to preview training samples: {e}")
+
+            if n_preview > 0 and not first_sample_texts:
+                raise ValueError(
+                    f"Training dataset '{train_dataset.name}' yielded no samples after "
+                    f"filtering! Stopping before training."
+                )
 
             # 3. Setup Trainer
 
@@ -583,13 +591,8 @@ def main():
             )
 
             # 4. Train
-            if config.do_train:
-                # Check if training dataset is empty after filtering
-                try:
-                    next(iter(train_dataset_proc))
-                except StopIteration:
-                    raise ValueError(f"Training dataset '{train_dataset.name}' is empty after filtering! Stopping training.")
-
+            # (The empty-dataset check lives in the preview pass above; repeating it
+            # here would cost another full shuffle-buffer refill.)
             training_time = 0
             train_metrics: Dict[str, Any] = {}
             if config.do_train:
