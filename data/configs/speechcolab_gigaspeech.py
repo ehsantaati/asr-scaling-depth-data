@@ -4,8 +4,12 @@ SPEECHCOLAB_GIGASPEECH_BASE = types.DatasetConfig(
     name="speechcolab-gigaspeech",
     path="speechcolab/gigaspeech",
     streaming=False,
-    # Gated, script-based dataset on the Hub.
-    trust_remote_code=True,
+    # Gated, but a parquet conversion exists for every config (m: 29 train shards),
+    # so the loading script is not needed. Using it is actively worse: a load through
+    # trust_remote_code=True hung for >4 minutes without producing a sample, while
+    # the parquet route resolves per split. Access still requires an accepted gate
+    # plus a valid HF_TOKEN.
+    trust_remote_code=False,
 )
 
 SPEECHCOLAB_GIGASPEECH_M_CONFIG = types.DatasetConfig(
