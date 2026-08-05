@@ -188,7 +188,13 @@ cython_debug/
 # Generated experiment artifacts and archived runs
 /outputs/
 /archive/
+/wandb/
+/logs/
 
 /notebooks/
 /exps/
 /instructions/
+
+# Job queue runtime state (jobs/campaign.jobs IS tracked)
+/jobs/status/
+/jobs/*.lock

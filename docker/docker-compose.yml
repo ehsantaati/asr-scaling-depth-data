@@ -1,0 +1,25 @@
+services:
+  asr-data-scaling:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: asr-data-scaling:latest
+    privileged: true
+    pull_policy: never
+    volumes:
+      - .:/workspace:rw
+    ports: 
+      - "8888:8888"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    devices:    
+       - /dev/nvidiactl:/dev/nvidiactl
+       - /dev/nvidia-uvm:/dev/nvidia-uvm
+       - /dev/nvidia0:/dev/nvidia0
+    restart: always
+    command: ["tail", "-f", "/dev/null"]
