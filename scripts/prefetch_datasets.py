@@ -98,14 +98,17 @@ def main():
 
     names = list(args.sets or [])
     if args.config:
-        import simple_parsing
-        from configs import TrainConfig
+        # Read the YAML directly rather than through simple_parsing: `load` does not
+        # exist in simple_parsing 0.1.7, and all we need are the dataset names.
+        import yaml
 
-        cfg = simple_parsing.load(TrainConfig, args.config)
-        for group in (cfg.train_sets, cfg.val_sets, cfg.eval_sets, cfg.ood_eval_sets):
-            for d in group or []:
-                if d.get("name") and d["name"] not in names:
-                    names.append(d["name"])
+        with open(args.config) as f:
+            raw = yaml.safe_load(f) or {}
+        for key in ("train_sets", "val_sets", "eval_sets", "ood_eval_sets"):
+            for d in raw.get(key) or []:
+                n = d.get("name") if isinstance(d, dict) else d
+                if n and n not in names:
+                    names.append(n)
     if not names:
         raise SystemExit("Nothing to do: pass --sets and/or --config")
 
