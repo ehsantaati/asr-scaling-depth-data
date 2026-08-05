@@ -1,0 +1,39 @@
+# Vanilla Whisper-Medium baseline over the same slices as the smoke run.
+# Exists to prove baseline parity: the `spec` block written here must be identical to
+# the one the training job writes, otherwise baseline and fine-tuned WERs are not
+# comparable and every "improvement over baseline" number is suspect.
+#
+#   bash scripts/run_inf.sh configs/rev/smoke/smoke_baseline_vanilla.yaml 0
+model_id: "openai/whisper-medium"
+language: "en"
+task: "transcribe"
+
+eval_sets:
+  - name: "voxpopuli-en"
+    streaming: true
+eval_dataset_args:
+  max_audio_duration_secs: 30
+  max_samples: 128
+
+ood_eval_sets:
+  - name: "openslr-librispeech-asr-clean"
+    streaming: true
+  - name: "openslr-librispeech-asr-other"
+    streaming: true
+ood_eval_dataset_args:
+  max_audio_duration_secs: 30
+  max_samples: 128
+
+eval_batch_size: 16
+
+# Must match the training job exactly.
+decode_num_beams: 1
+decode_dtype: "fp16"
+decode_force_language: true
+score_legacy_path: true
+
+use_fast_inference: true
+num_inference_workers: 0
+fp16: true
+
+output_dir: "outputs/rev/smoke/baseline_vanilla"

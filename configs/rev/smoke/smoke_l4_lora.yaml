@@ -1,0 +1,221 @@
+# Smoke test: L4 LoRA on VoxPopuli-EN, deliberately small.
+# Real model, real data, real code path -- only the sample counts are reduced, so a
+# pass here means the campaign's artifact contract holds end to end.
+# ~125 optimizer steps; ~15-25 min on one A6000.
+#
+#   bash scripts/queue_worker.sh jobs/smoke.jobs      (GPU=0)
+#   bash scripts/check_artifacts.sh <run_dir>
+model_id: "openai/whisper-medium"
+language: "en"
+task: "transcribe"
+
+train_sets:
+  - name: "voxpopuli-en"
+    streaming: true
+train_dataset_args:
+  max_audio_duration_secs: 30
+  max_samples: 2000
+
+val_sets:
+  - name: "voxpopuli-en"
+    streaming: true
+val_dataset_args:
+  max_audio_duration_secs: 30
+  max_samples: 64
+
+eval_sets:
+  - name: "voxpopuli-en"
+    streaming: true
+eval_dataset_args:
+  max_audio_duration_secs: 30
+  max_samples: 128
+
+# Out-of-domain (action B7). Scored with the identical decode spec.
+ood_eval_sets:
+  - name: "openslr-librispeech-asr-clean"
+    streaming: true
+  - name: "openslr-librispeech-asr-other"
+    streaming: true
+ood_eval_dataset_args:
+  max_audio_duration_secs: 30
+  max_samples: 128
+
+data_fractions: [1.0]
+num_subsets: 1
+
+lora_config:
+  r: 64
+  lora_alpha: 128
+  lora_dropout: 0.1
+  init_blocks:
+    - ["proj_out", "layers.23"]
+    - ["layers.22"]
+    - ["layers.21"]
+    - ["layers.20"]
+    - ["layers.19"]
+    - ["layers.18"]
+    - ["layers.17"]
+    - ["layers.16"]
+    - ["layers.15"]
+    - ["layers.14"]
+    - ["layers.13"]
+    - ["layers.12"]
+
+target_modules:
+  - "proj_out"
+  - "model.decoder.layers.23.self_attn.q_proj"
+  - "model.decoder.layers.23.self_attn.k_proj"
+  - "model.decoder.layers.23.self_attn.v_proj"
+  - "model.decoder.layers.23.self_attn.out_proj"
+  - "model.decoder.layers.23.encoder_attn.q_proj"
+  - "model.decoder.layers.23.encoder_attn.k_proj"
+  - "model.decoder.layers.23.encoder_attn.v_proj"
+  - "model.decoder.layers.23.encoder_attn.out_proj"
+  - "model.decoder.layers.23.fc1"
+  - "model.decoder.layers.23.fc2"
+  - "model.decoder.layers.22.self_attn.q_proj"
+  - "model.decoder.layers.22.self_attn.k_proj"
+  - "model.decoder.layers.22.self_attn.v_proj"
+  - "model.decoder.layers.22.self_attn.out_proj"
+  - "model.decoder.layers.22.encoder_attn.q_proj"
+  - "model.decoder.layers.22.encoder_attn.k_proj"
+  - "model.decoder.layers.22.encoder_attn.v_proj"
+  - "model.decoder.layers.22.encoder_attn.out_proj"
+  - "model.decoder.layers.22.fc1"
+  - "model.decoder.layers.22.fc2"
+  - "model.decoder.layers.21.self_attn.q_proj"
+  - "model.decoder.layers.21.self_attn.k_proj"
+  - "model.decoder.layers.21.self_attn.v_proj"
+  - "model.decoder.layers.21.self_attn.out_proj"
+  - "model.decoder.layers.21.encoder_attn.q_proj"
+  - "model.decoder.layers.21.encoder_attn.k_proj"
+  - "model.decoder.layers.21.encoder_attn.v_proj"
+  - "model.decoder.layers.21.encoder_attn.out_proj"
+  - "model.decoder.layers.21.fc1"
+  - "model.decoder.layers.21.fc2"
+  - "model.decoder.layers.20.self_attn.q_proj"
+  - "model.decoder.layers.20.self_attn.k_proj"
+  - "model.decoder.layers.20.self_attn.v_proj"
+  - "model.decoder.layers.20.self_attn.out_proj"
+  - "model.decoder.layers.20.encoder_attn.q_proj"
+  - "model.decoder.layers.20.encoder_attn.k_proj"
+  - "model.decoder.layers.20.encoder_attn.v_proj"
+  - "model.decoder.layers.20.encoder_attn.out_proj"
+  - "model.decoder.layers.20.fc1"
+  - "model.decoder.layers.20.fc2"
+  - "model.decoder.layers.19.self_attn.q_proj"
+  - "model.decoder.layers.19.self_attn.k_proj"
+  - "model.decoder.layers.19.self_attn.v_proj"
+  - "model.decoder.layers.19.self_attn.out_proj"
+  - "model.decoder.layers.19.encoder_attn.q_proj"
+  - "model.decoder.layers.19.encoder_attn.k_proj"
+  - "model.decoder.layers.19.encoder_attn.v_proj"
+  - "model.decoder.layers.19.encoder_attn.out_proj"
+  - "model.decoder.layers.19.fc1"
+  - "model.decoder.layers.19.fc2"
+  - "model.decoder.layers.18.self_attn.q_proj"
+  - "model.decoder.layers.18.self_attn.k_proj"
+  - "model.decoder.layers.18.self_attn.v_proj"
+  - "model.decoder.layers.18.self_attn.out_proj"
+  - "model.decoder.layers.18.encoder_attn.q_proj"
+  - "model.decoder.layers.18.encoder_attn.k_proj"
+  - "model.decoder.layers.18.encoder_attn.v_proj"
+  - "model.decoder.layers.18.encoder_attn.out_proj"
+  - "model.decoder.layers.18.fc1"
+  - "model.decoder.layers.18.fc2"
+  - "model.decoder.layers.17.self_attn.q_proj"
+  - "model.decoder.layers.17.self_attn.k_proj"
+  - "model.decoder.layers.17.self_attn.v_proj"
+  - "model.decoder.layers.17.self_attn.out_proj"
+  - "model.decoder.layers.17.encoder_attn.q_proj"
+  - "model.decoder.layers.17.encoder_attn.k_proj"
+  - "model.decoder.layers.17.encoder_attn.v_proj"
+  - "model.decoder.layers.17.encoder_attn.out_proj"
+  - "model.decoder.layers.17.fc1"
+  - "model.decoder.layers.17.fc2"
+  - "model.decoder.layers.16.self_attn.q_proj"
+  - "model.decoder.layers.16.self_attn.k_proj"
+  - "model.decoder.layers.16.self_attn.v_proj"
+  - "model.decoder.layers.16.self_attn.out_proj"
+  - "model.decoder.layers.16.encoder_attn.q_proj"
+  - "model.decoder.layers.16.encoder_attn.k_proj"
+  - "model.decoder.layers.16.encoder_attn.v_proj"
+  - "model.decoder.layers.16.encoder_attn.out_proj"
+  - "model.decoder.layers.16.fc1"
+  - "model.decoder.layers.16.fc2"
+  - "model.decoder.layers.15.self_attn.q_proj"
+  - "model.decoder.layers.15.self_attn.k_proj"
+  - "model.decoder.layers.15.self_attn.v_proj"
+  - "model.decoder.layers.15.self_attn.out_proj"
+  - "model.decoder.layers.15.encoder_attn.q_proj"
+  - "model.decoder.layers.15.encoder_attn.k_proj"
+  - "model.decoder.layers.15.encoder_attn.v_proj"
+  - "model.decoder.layers.15.encoder_attn.out_proj"
+  - "model.decoder.layers.15.fc1"
+  - "model.decoder.layers.15.fc2"
+  - "model.decoder.layers.14.self_attn.q_proj"
+  - "model.decoder.layers.14.self_attn.k_proj"
+  - "model.decoder.layers.14.self_attn.v_proj"
+  - "model.decoder.layers.14.self_attn.out_proj"
+  - "model.decoder.layers.14.encoder_attn.q_proj"
+  - "model.decoder.layers.14.encoder_attn.k_proj"
+  - "model.decoder.layers.14.encoder_attn.v_proj"
+  - "model.decoder.layers.14.encoder_attn.out_proj"
+  - "model.decoder.layers.14.fc1"
+  - "model.decoder.layers.14.fc2"
+  - "model.decoder.layers.13.self_attn.q_proj"
+  - "model.decoder.layers.13.self_attn.k_proj"
+  - "model.decoder.layers.13.self_attn.v_proj"
+  - "model.decoder.layers.13.self_attn.out_proj"
+  - "model.decoder.layers.13.encoder_attn.q_proj"
+  - "model.decoder.layers.13.encoder_attn.k_proj"
+  - "model.decoder.layers.13.encoder_attn.v_proj"
+  - "model.decoder.layers.13.encoder_attn.out_proj"
+  - "model.decoder.layers.13.fc1"
+  - "model.decoder.layers.13.fc2"
+  - "model.decoder.layers.12.self_attn.q_proj"
+  - "model.decoder.layers.12.self_attn.k_proj"
+  - "model.decoder.layers.12.self_attn.v_proj"
+  - "model.decoder.layers.12.self_attn.out_proj"
+  - "model.decoder.layers.12.encoder_attn.q_proj"
+  - "model.decoder.layers.12.encoder_attn.k_proj"
+  - "model.decoder.layers.12.encoder_attn.v_proj"
+  - "model.decoder.layers.12.encoder_attn.out_proj"
+  - "model.decoder.layers.12.fc1"
+  - "model.decoder.layers.12.fc2"
+
+output_dir: "outputs/rev/smoke/l4_lora"
+num_epochs: 1
+batch_size: 16
+grad_accum_steps: 1
+learning_rate: 1e-5
+warmup_ratio: 0.01
+weight_decay: 0.0
+fp16: true
+
+seed: 42
+data_seed: 42
+data_order_seed_mode: "auto"
+dataloader_num_workers: 8      # forced to 0 by strict_reproducibility
+strict_reproducibility: true
+
+# Dense grids so a short run still produces a real curve.
+logging_steps: 5
+eval_steps: 25
+eval_on_start: true
+eval_batch_size: 16
+
+# B8 exercised here even though it is a LoRA run, so the smoke test covers the
+# checkpoint -> best-vs-final -> delete path that the deep full-FT jobs rely on.
+checkpoint_fraction: 0.1
+run_best_vs_final: true
+best_vs_final_max_samples: 128
+
+# Dual-path scoring: wer_fixed and wer_legacy for every eval set.
+score_legacy_path: true
+decode_num_beams: 1
+decode_dtype: "fp16"
+decode_force_language: true
+
+save_mode: "auto"              # -> "adapter" for a LoRA run
+log_dataset_metadata: false    # would iterate the whole stream just to count it

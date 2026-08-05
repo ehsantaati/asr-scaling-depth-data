@@ -1,0 +1,3 @@
+# Smoke test only -- one job. campaign.jobs is written after this passes.
+# job_id	config	seed	run_name	output_dir	extra
+smoke_l4_lora_s42	configs/rev/smoke/smoke_l4_lora.yaml	42	s42	outputs/rev/smoke/l4_lora	-
