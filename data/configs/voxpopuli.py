@@ -5,6 +5,14 @@ VOXPOPULI_BASE_CONFIG = types.DatasetConfig(
     path="facebook/voxpopuli",
     transcript_field="normalized_text",
     audio_field="audio",
+    # Download and cache rather than stream. DatasetConfig defaults streaming to
+    # True, and streaming VoxPopuli was measured at ~2 samples/s while still pulling
+    # whole shards over the network -- so the bandwidth is spent either way, but
+    # nothing is kept. Across a 3-5 seed multi-seed cell that is the same download
+    # repeated per seed, and a single full-data B1 pass would take ~25 h of pure I/O.
+    # Cached, the corpus is fetched once and every later run reads local disk.
+    # GigaSpeech and SPGISpeech already do this.
+    streaming=False,
 )
 
 VOXPOPULI_EN_CONFIG = types.DatasetConfig(

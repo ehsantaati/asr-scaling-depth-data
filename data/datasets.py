@@ -102,6 +102,7 @@ class VoiceDataset(SizedIterableDataset):
         streaming: bool = True,
         audio_field: Optional[str] = None,
         features: Optional[hf_datasets.Features] = None,
+        trust_remote_code: bool = False,
     ) -> data.Dataset:
         # Handle slicing for streaming datasets manually
         # Syntax: split_name[start:stop]
@@ -134,7 +135,10 @@ class VoiceDataset(SizedIterableDataset):
             streaming=streaming,
             features=features,
             download_config=hf_datasets.DownloadConfig(max_retries=10),
-            trust_remote_code=True,
+            # Per-dataset, not hardcoded True: a script loader materialises every
+            # split of a config, so asking for one test split can pull tens of GB
+            # of unrelated training data. See DatasetConfig.trust_remote_code.
+            trust_remote_code=trust_remote_code,
         )
         
         if slice_start is not None:
@@ -342,6 +346,7 @@ class GenericDataset(VoiceDataset):
                     ),
                     audio_field=config.audio_field,
                     features=config.features,
+                    trust_remote_code=bool(config.trust_remote_code),
                 )
                 if split.num_samples is not None:
                     if hasattr(ds, "take"):

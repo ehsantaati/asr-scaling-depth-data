@@ -18,6 +18,8 @@ SPGISPEECH_2_CONFIG = types.DatasetConfig(
     transcript_field="transcript",
     audio_field="audio",
     streaming=False,
+    # Local loading script; there is no parquet export to fall back to.
+    trust_remote_code=True,
     splits=[
         types.DatasetSplitConfig(name="train", num_samples=512724),
         types.DatasetSplitConfig(

@@ -11,21 +11,21 @@ task: "transcribe"
 
 train_sets:
   - name: "voxpopuli-en"
-    streaming: true
+    streaming: false
 train_dataset_args:
   max_audio_duration_secs: 30
   max_samples: 2000
 
 val_sets:
   - name: "voxpopuli-en"
-    streaming: true
+    streaming: false
 val_dataset_args:
   max_audio_duration_secs: 30
   max_samples: 64
 
 eval_sets:
   - name: "voxpopuli-en"
-    streaming: true
+    streaming: false
 eval_dataset_args:
   max_audio_duration_secs: 30
   max_samples: 128
@@ -33,9 +33,9 @@ eval_dataset_args:
 # Out-of-domain (action B7). Scored with the identical decode spec.
 ood_eval_sets:
   - name: "openslr-librispeech-asr-clean"
-    streaming: true
+    streaming: false
   - name: "openslr-librispeech-asr-other"
-    streaming: true
+    streaming: false
 ood_eval_dataset_args:
   max_audio_duration_secs: 30
   max_samples: 128

@@ -4,6 +4,8 @@ SPEECHCOLAB_GIGASPEECH_BASE = types.DatasetConfig(
     name="speechcolab-gigaspeech",
     path="speechcolab/gigaspeech",
     streaming=False,
+    # Gated, script-based dataset on the Hub.
+    trust_remote_code=True,
 )
 
 SPEECHCOLAB_GIGASPEECH_M_CONFIG = types.DatasetConfig(

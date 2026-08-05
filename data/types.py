@@ -135,6 +135,15 @@ class DatasetConfig(helpers.Serializable):
 
     streaming: Optional[bool] = None
     """Whether to load the dataset using streaming mode."""
+    trust_remote_code: Optional[bool] = None
+    """Execute the dataset's own loading script instead of the Hub's parquet export.
+
+    Default False, and it matters for more than security. A script loader's
+    _split_generators builds every split of a config, so requesting only `test`
+    from openslr/librispeech_asr still downloaded train.100 and train.360 -- 30 GB
+    for 0.33 GiB of actual need. The parquet export fetches only the split asked
+    for. Set True only for datasets that have no parquet export (local loading
+    scripts such as spgispeech_2)."""
     features: Optional[Any] = None
     """Optional Hugging Face Features schema to enforce when loading the dataset."""
     eval_config: Optional[EvalConfig] = None
@@ -150,6 +159,7 @@ class DatasetConfig(helpers.Serializable):
             "audio_root": None,
 
             "streaming": True,
+            "trust_remote_code": False,
             "features": None,
             "eval_config": None,
         }
