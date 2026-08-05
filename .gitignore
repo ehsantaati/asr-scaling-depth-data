@@ -180,3 +180,14 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 .DS_Store
+
+# Local editor configuration
+/.vscode/
+/*.code-workspace
+
+# Generated experiment artifacts and archived runs
+/outputs/
+/archive/
+
+/notebooks/
+/exps/
