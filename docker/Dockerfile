@@ -1,3 +1,14 @@
+# BUILD CONTEXT MUST BE THE REPO ROOT, NOT docker/.
+#
+#   docker compose -f docker/docker-compose.yml build     <- preferred
+#   bash scripts/docker_build.sh                          <- equivalent
+#   docker build -f docker/Dockerfile -t asr-data-scaling:latest .    <- note the "."
+#
+# Building with `docker build ... docker` (the VS Code Docker extension's default,
+# which uses the Dockerfile's own directory) fails at the COPY below with
+# "/pyproject.toml: not found", because pyproject.toml and poetry.lock live at the
+# repo root and are not in that context.
+#
 # Reproducibility artifact for the revision campaign (R1-7.4): the image pins the
 # same interpreter and the same locked dependency set the reported runs used.
 #
