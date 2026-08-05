@@ -72,6 +72,8 @@ class VoiceDataset(SizedIterableDataset):
         self._rng = np.random.default_rng(self._args.shuffle_seed)
         self._name = "[unset]"
         self._length = -1
+        # Populated at the end of each __iter__ pass; see the note there.
+        self.last_pass_counts: Optional[Dict[str, Any]] = None
 
     # num_samples is the total number of samples in the dataset
     def _init_dataset(
@@ -252,6 +254,22 @@ class VoiceDataset(SizedIterableDataset):
             error_summary.append(f"Empty audio: {empty_audio_count}")
             
         error_details = ", ".join(error_summary) if error_summary else "None"
+
+        # Expose the counters so callers can report the WER denominator instead of
+        # implying that a filtered evaluation set was complete (R1-7.4). Consumed by
+        # decoding._collect_filter_counts and recorded in run_manifest.json.
+        self.last_pass_counts = {
+            "rows_read": actual_length,
+            "declared_total": self._length,
+            "yielded": actual_length - bad_samples - skipped_samples,
+            "bad_samples": bad_samples,
+            "none_sample": none_sample_count,
+            "empty_text": empty_text_count,
+            "none_audio": none_audio_count,
+            "empty_audio": empty_audio_count,
+            "skipped_over_max_duration": skipped_samples,
+            "max_audio_duration_secs": self._args.max_audio_duration_secs,
+        }
 
         if actual_length > 0 or bad_samples > 0 or skipped_samples > 0:
             logging.info(
