@@ -10,6 +10,11 @@ SPGISpeech 2 Dataset.
 https://datasets.kensho.com/datasets/spgispeech2
 """
 
+# Root of the extracted corpus, containing shards/{train,validation,test}/*.tar and
+# alignment_files/{call_id}/{snippet_id}.json. Override with SPGISPEECH2_ROOT; the
+# builder's own `data_dir` config option still takes precedence when supplied.
+SPGISPEECH2_ROOT = os.environ.get("SPGISPEECH2_ROOT", "/home/ehsan/data/SPGISPeech_2")
+
 class Spgispeech2(datasets.GeneratorBasedBuilder):
     """SPGISpeech 2 dataset."""
 
@@ -36,7 +41,7 @@ class Spgispeech2(datasets.GeneratorBasedBuilder):
         """Returns SplitGenerators."""
         data_dir = self.config.data_dir
         if not data_dir:
-            data_dir = "/mnt/data/SPGISPeech_2"
+            data_dir = SPGISPEECH2_ROOT
 
         shards_dir = os.path.join(data_dir, "shards")
         
@@ -140,13 +145,11 @@ class Spgispeech2(datasets.GeneratorBasedBuilder):
 
     def _split_sample(self, audio_array, sample_rate, metadata, call_id, snippet_id):
         # Locate alignment
-        # Logic: /mnt/data/SPGISPeech_2/alignment_files/{call_id}/{snippet_id}.json
-        # NOTE: user examples showed alignment_files/0/0.json etc. 
-        # But earlier we saw `alignment_files/304` is a directory.
-        # It seems the structure IS `alignment_files/{call_id}/{snippet_id}.json`.
-        
-        align_path = f"/mnt/data/SPGISPeech_2/alignment_files/{call_id}/{snippet_id}.json"
-        
+        # Structure is alignment_files/{call_id}/{snippet_id}.json under the corpus root.
+        align_path = os.path.join(
+            SPGISPEECH2_ROOT, "alignment_files", str(call_id), f"{snippet_id}.json"
+        )
+
         if not os.path.exists(align_path):
              # Fallback: maybe just return original or skip?
              # If we return original > 30s it will crash training potentially.

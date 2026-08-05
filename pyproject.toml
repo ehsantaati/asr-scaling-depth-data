@@ -7,31 +7,41 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.11"
+# Versions are pinned to the exact environment used for the revision rerun campaign
+# (R1-7.4: "exact dataset versions, preprocessing scripts ... should be made available").
+# Loosening any of these invalidates the reproducibility claim in the response letter;
+# the same versions are recorded per run in run_manifest.json -> provenance/fingerprint.
 dependencies = [
-    "pandas (>=2.3.3,<3.0.0)",
-    "ipykernel (>=7.1.0,<8.0.0)",
-    "iprogress (>=0.4,<0.5)",
-    "python-dotenv (>=1.2.1,<2.0.0)",
-    "ipywidgets (>=8.1.8,<9.0.0)",
-    "numpy (==1.26.4)",
+    # --- core training / inference stack (campaign-pinned) ---
+    "torch (==2.9.1)",
+    "transformers (==4.57.3)",
+    "peft (==0.18.0)",
+    "accelerate (==1.12.0)",
+    "safetensors (==0.7.0)",
     "datasets (==3.6.0)",
-    "librosa (>=0.11.0,<0.12.0)",
-    "simple-parsing (>=0.1.5)",
-
-    "jinja2 (>=3.1.0)",
-    "transformers (>=4.30.0)",
-    "torch (>=2.0.0)",
-    "soundfile (>=0.12.0)",
-    "truecase (>=0.0.14)",
-    "nltk (>=3.8.1)",
-    "evaluate (>=0.4.6,<0.5.0)",
-    "peft (>=0.18.0,<0.19.0)",
-    "wandb (>=0.23.0,<0.24.0)",
-    "tensorboard (>=2.20.0,<3.0.0)",
-    "jiwer (>=4.0.0,<5.0.0)",
+    "numpy (==1.26.4)",
+    # --- audio ---
+    "librosa (==0.11.0)",
+    "soundfile (==0.13.1)",
+    # --- metrics / text normalization ---
+    "evaluate (==0.4.6)",
+    "jiwer (==4.0.0)",
+    "truecase (==0.0.14)",
+    "nltk (==3.9.2)",
+    "whisper-normalizer (==0.1.12)",
+    # --- config parsing / logging ---
+    "simple-parsing (==0.1.7)",
+    "python-dotenv (>=1.2.1,<2.0.0)",
+    "tensorboard (==2.20.0)",
+    "wandb (==0.23.0)",
+    # --- analysis / notebooks ---
+    "pandas (==2.3.3)",
     "matplotlib (>=3.10.8,<4.0.0)",
     "seaborn (>=0.13.2,<0.14.0)",
-    "whisper-normalizer (>=0.1.12,<0.2.0)"
+    "ipykernel (>=7.1.0,<8.0.0)",
+    "iprogress (>=0.4,<0.5)",
+    "ipywidgets (>=8.1.8,<9.0.0)",
+    "jinja2 (>=3.1.0)",
 ]
 
 
