@@ -26,8 +26,14 @@ STATUS_DIR="$QDIR/status"
 LOCKFILE="$QDIR/queue.lock"
 LOGDIR="$REPO_ROOT/logs/queue"
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-2}"
-STALE_MIN="${STALE_MIN:-20}"        # a .running file older than this == orphaned
 HEARTBEAT_SEC="${HEARTBEAT_SEC:-60}"
+# A live worker touches its .running file every HEARTBEAT_SEC. Three missed beats is
+# a strong death signal, and it is the *only* signal that works across container
+# restarts: a container's hostname and pid namespace both change on recreate, so the
+# host/pid check below cannot see a previous instance's worker. The old 20-minute
+# default meant a job orphaned by `docker compose up --force-recreate` stayed
+# unclaimable for 20 minutes.
+STALE_SEC="${STALE_SEC:-$((HEARTBEAT_SEC * 3))}"
 
 mkdir -p "$STATUS_DIR" "$LOGDIR"
 touch "$LOCKFILE"
@@ -77,25 +83,32 @@ manifest_complete() {  # manifest_complete <run_dir>
 # parked as .failed for a human.
 sweep_orphans() {
   shopt -s nullglob
+  local now; now=$(date +%s)
   for f in "$STATUS_DIR"/*.running; do
-    local id host pid stale=0
+    local id host pid stale=0 why="" age mtime
     id="$(basename "$f" .running)"
     host="$(jq -r '.host // ""' "$f" 2>/dev/null)"
     pid="$(jq -r '.pid // 0' "$f" 2>/dev/null)"
 
+    # Fast path: same host, and we can see the pid is gone.
     if [[ "$host" == "$(hostname)" ]] && [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 0 )); then
-      kill -0 "$pid" 2>/dev/null || stale=1
+      if ! kill -0 "$pid" 2>/dev/null; then stale=1; why="pid $pid dead"; fi
     fi
-    if [[ -n "$(find "$f" -mmin "+$STALE_MIN" 2>/dev/null)" ]]; then
-      stale=1
+
+    # Authoritative path: the heartbeat. Works regardless of host, pid namespace or
+    # container identity, so it also covers reboots and container recreation.
+    mtime=$(stat -c %Y "$f" 2>/dev/null || echo "$now")
+    age=$(( now - mtime ))
+    if (( age > STALE_SEC )); then
+      stale=1; why="${why:+$why, }heartbeat ${age}s old (> ${STALE_SEC}s)"
     fi
 
     if (( stale )); then
       local n; n=$(( $(jq -r '.attempt // 1' "$f" 2>/dev/null) ))
-      log "orphan detected: $id (pid=$pid, host=$host) -> failed{orphaned}"
+      log "orphan detected: $id ($why; host=$host) -> failed{orphaned}"
       rm -f "$f"
-      write_status "$id" failed "$(jq -nc --arg id "$id" --argjson n "$n" \
-        '{finished:now|todate, exit:null, attempts:$n, reason:"orphaned"}')"
+      write_status "$id" failed "$(jq -nc --arg r "orphaned: $why" --argjson n "$n" \
+        '{finished:now|todate, exit:null, attempts:$n, reason:$r}')"
     fi
   done
   shopt -u nullglob
