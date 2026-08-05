@@ -3,8 +3,8 @@
 # (scripts/queue_launch.sh); this wrapper is kept for one-off / debugging runs.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PY="${PY:-$REPO_ROOT/.venv/bin/python}"
+source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+PY="$(require_py)"
 
 CONFIG_PATH=${1:-}
 DEVICE=${2:-0}
@@ -19,12 +19,7 @@ if [ ! -f "$CONFIG_PATH" ]; then
   exit 1
 fi
 
-if [ ! -x "$PY" ]; then
-  echo "Error: interpreter not found at $PY (set PY=... to override)"
-  exit 1
-fi
-
-echo "Running experiment with config $CONFIG_PATH on device $DEVICE"
+echo "Running experiment with config $CONFIG_PATH on device $DEVICE (python: $PY)"
 cd "$REPO_ROOT"
 CUDA_VISIBLE_DEVICES="$DEVICE" \
 WANDB_MODE="${WANDB_MODE:-offline}" \

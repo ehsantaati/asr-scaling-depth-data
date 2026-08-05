@@ -15,12 +15,12 @@
 # auditable. Adding a seed means adding a line.
 set -uo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 cd "$REPO_ROOT"
 
 JOBFILE="${1:-jobs/campaign.jobs}"
 GPU="${GPU:-0}"
-PY="${PY:-$REPO_ROOT/.venv/bin/python}"
+PY="$(resolve_py)"
 QDIR="$REPO_ROOT/jobs"
 STATUS_DIR="$QDIR/status"
 LOCKFILE="$QDIR/queue.lock"

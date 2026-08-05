@@ -1,15 +1,64 @@
+# The container owns its Python environment (/opt/venv, built by docker/Dockerfile).
+# The host .venv is never used inside it -- scripts/_common.sh:resolve_py prefers
+# $VIRTUAL_ENV, so the host .venv visible at /app/.venv through the mount is ignored.
+#
+#   docker compose -f docker/docker-compose.yml build
+#   docker compose -f docker/docker-compose.yml up -d
+#
+#   # smoke test inside the container
+#   docker compose -f docker/docker-compose.yml exec asr-data-scaling \
+#       env GPU=0 bash scripts/queue_worker.sh jobs/smoke.jobs
+#
+#   # full campaign under tmux inside the container
+#   docker compose -f docker/docker-compose.yml exec asr-data-scaling \
+#       bash scripts/queue_launch.sh jobs/campaign.jobs
+#
+# Host paths are configurable; defaults match this machine. Override in docker/.env
+# or the shell:
+#   REPO_ROOT   (default ..)                      bind-mounted read-write at /app
+#   HF_CACHE    (default ~/.cache/huggingface)    model + dataset cache
+#   SPGI_ROOT   (default ~/data/SPGISPeech_2)     SPGISpeech 2.0 corpus, read-only
+
+# Without this the project name defaults to the compose file's parent directory,
+# i.e. "docker" -- which collides with any other project laid out the same way.
+name: asr-data-scaling
+
 services:
   asr-data-scaling:
     build:
       context: ..
       dockerfile: docker/Dockerfile
     image: asr-data-scaling:latest
-    privileged: true
     pull_policy: never
+
     volumes:
-      - .:/workspace:rw
-    ports: 
-      - "8888:8888"
+      # The old mount was `.:/workspace`, i.e. the *docker/* directory (compose
+      # resolves relative paths against the compose file) landing somewhere the
+      # image does not use. The code lives at /app; mount the repo over it so edits
+      # on the host take effect without a rebuild.
+      - ${REPO_ROOT:-..}:/app:rw
+      # Caches and corpora are mounted, never baked into the image. Without these,
+      # every container start re-downloads GigaSpeech/VoxPopuli and SPGISpeech is
+      # simply unreachable.
+      - ${HF_CACHE:-~/.cache/huggingface}:/cache/huggingface:rw
+      - ${SPGI_ROOT:-~/data/SPGISPeech_2}:/data/SPGISPeech_2:ro
+
+    # HF_TOKEN. Optional so the stack still comes up on a machine without one;
+    # .dockerignore keeps .env out of the build context, so the token is injected at
+    # run time and never baked into the image layers.
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      HF_HOME: /cache/huggingface
+      SPGISPEECH2_ROOT: /data/SPGISPeech_2
+      PYTHONHASHSEED: "0"
+      TOKENIZERS_PARALLELISM: "false"
+      WANDB_MODE: offline
+
+    ports:
+      - "8888:8888"      # jupyter, for the analysis notebooks
+
     deploy:
       resources:
         reservations:
@@ -17,9 +66,17 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    devices:    
-       - /dev/nvidiactl:/dev/nvidiactl
-       - /dev/nvidia-uvm:/dev/nvidia-uvm
-       - /dev/nvidia0:/dev/nvidia0
-    restart: always
+
+    # PyTorch dataloader workers exchange batches through /dev/shm; the 64 MB default
+    # causes "bus error" crashes. Harmless when strict_reproducibility forces
+    # num_workers=0, but the image should not depend on that.
+    shm_size: "16gb"
+
+    # Removed: `privileged: true` and the hand-listed /dev/nvidia* devices. The
+    # deploy.resources reservation above already exposes the GPUs via the NVIDIA
+    # container runtime, and the explicit list hardcoded /dev/nvidia0 -- wrong on a
+    # two-GPU host and brittle across driver reloads.
+
+    working_dir: /app
+    restart: unless-stopped
     command: ["tail", "-f", "/dev/null"]
