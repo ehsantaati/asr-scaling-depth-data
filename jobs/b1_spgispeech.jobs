@@ -12,9 +12,6 @@ spgispeech_l5_full_s1234	configs/rev/b1/spgispeech/l5_full.yaml	1234	s1234	outpu
 spgispeech_l4_lora_s42	configs/rev/b1/spgispeech/l4_lora.yaml	42	s42	outputs/rev/b1/spgispeech/l4_lora	-
 spgispeech_l4_lora_s123	configs/rev/b1/spgispeech/l4_lora.yaml	123	s123	outputs/rev/b1/spgispeech/l4_lora	-
 spgispeech_l4_lora_s1234	configs/rev/b1/spgispeech/l4_lora.yaml	1234	s1234	outputs/rev/b1/spgispeech/l4_lora	-
-spgispeech_l6_lora_s42	configs/rev/b1/spgispeech/l6_lora.yaml	42	s42	outputs/rev/b1/spgispeech/l6_lora	-
-spgispeech_l6_lora_s123	configs/rev/b1/spgispeech/l6_lora.yaml	123	s123	outputs/rev/b1/spgispeech/l6_lora	-
-spgispeech_l6_lora_s1234	configs/rev/b1/spgispeech/l6_lora.yaml	1234	s1234	outputs/rev/b1/spgispeech/l6_lora	-
-spgispeech_l6_lora_frac10_s42	configs/rev/b1/spgispeech/l6_lora_frac10.yaml	42	s42	outputs/rev/b1/spgispeech/l6_lora_frac10	-
-spgispeech_l6_lora_frac10_s123	configs/rev/b1/spgispeech/l6_lora_frac10.yaml	123	s123	outputs/rev/b1/spgispeech/l6_lora_frac10	-
-spgispeech_l6_lora_frac10_s1234	configs/rev/b1/spgispeech/l6_lora_frac10.yaml	1234	s1234	outputs/rev/b1/spgispeech/l6_lora_frac10	-
+spgispeech_l5_lora_frac10_s42	configs/rev/b1/spgispeech/l5_lora_frac10.yaml	42	s42	outputs/rev/b1/spgispeech/l5_lora_frac10	-
+spgispeech_l5_lora_frac10_s123	configs/rev/b1/spgispeech/l5_lora_frac10.yaml	123	s123	outputs/rev/b1/spgispeech/l5_lora_frac10	-
+spgispeech_l5_lora_frac10_s1234	configs/rev/b1/spgispeech/l5_lora_frac10.yaml	1234	s1234	outputs/rev/b1/spgispeech/l5_lora_frac10	-

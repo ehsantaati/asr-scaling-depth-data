@@ -67,22 +67,36 @@ SEEDS = {1: {"lora": [42, 123, 1234, 12345, 123456], "full": [42, 123, 1234]},
 #     no reviewer asked.
 #   * SPGISpeech's FT-vs-LoRA claim lives at L5 (tier 1). L4/L6 on SPGISpeech carry
 #     no contested crossover, so they are LoRA-only too.
+#
+# There is no L6 LoRA cell, and this is not an oversight (2026-08-06). L6 is defined
+# as L5 plus embed_tokens and embed_positions; full_ft_targets() adds them, but
+# lora_targets() cannot -- LORA_MODS wraps attention and FFN projections only, and
+# LoRA has nowhere to put an embedding matrix. L5 and L6 therefore resolve to the
+# same 241 modules, and l6_lora.yaml was byte-identical to l5_lora.yaml apart from
+# output_dir. The cells were enumerated separately until the queue was already
+# running, which would have spent ~14 runs recomputing L5 under the name L6.
+# The honest form of the result is that LoRA saturates at L5 because the parameters
+# that distinguish L6 are not LoRA-adaptable; that belongs in W1 next to the existing
+# note on LayerNorm. Do not re-add an L6 LoRA cell without first giving L6 LoRA a
+# distinct meaning (an embedding adapter, or embeddings trainable alongside LoRA) --
+# and note that such a variant is a new experiment, not comparable to the original
+# paper's numbers.
 CELLS = [
     # (dataset,     depth, fraction, tier, methods)
     ("gigaspeech",  "L4", 1.0, 1, ("lora", "full")),
     ("gigaspeech",  "L5", 1.0, 1, ("lora", "full")),
-    ("gigaspeech",  "L6", 1.0, 1, ("lora", "full")),
+    ("gigaspeech",  "L6", 1.0, 1, ("full",)),
     ("spgispeech",  "L5", 1.0, 1, ("lora", "full")),
     ("spgispeech",  "L4", 1.0, 2, ("lora",)),
-    ("spgispeech",  "L6", 1.0, 2, ("lora",)),
     ("voxpopuli",   "L4", 1.0, 2, ("lora", "full")),
     ("voxpopuli",   "L5", 1.0, 2, ("lora", "full")),
-    ("voxpopuli",   "L6", 1.0, 2, ("lora", "full")),
-    # Data-scale cells carrying claims: L6 @ 10% (SPGISpeech/VoxPopuli instability)
-    # and L5 @ 10% (Figure 8 regime comparison, whose crossover rests on 0.30 WER on
-    # VoxPopuli -- squarely in the territory the reseeding campaign exists to protect).
-    ("spgispeech",  "L6", 0.1, 2, ("lora",)),
-    ("voxpopuli",   "L6", 0.1, 2, ("lora",)),
+    ("voxpopuli",   "L6", 1.0, 2, ("full",)),
+    # Data-scale cells carrying claims: the 10% instability numbers being defended
+    # (8.21, 8.45) and Figure 8's regime comparison, whose crossover rests on 0.30 WER
+    # on VoxPopuli -- squarely in the territory the reseeding campaign exists to
+    # protect. Both were written as "L6 @ 10%"; at LoRA that is L5 @ 10%, so they are
+    # enumerated under their true depth. The runs are the same runs, correctly named.
+    ("spgispeech",  "L5", 0.1, 2, ("lora",)),
     ("voxpopuli",   "L5", 0.1, 2, ("lora",)),
 ]
 
