@@ -196,7 +196,23 @@ audit_run() {
     adapter)
       check "[[ -f '$RUN/adapter/adapter_model.safetensors' ]]" "LoRA adapter saved"
       local ab; ab=$(jq -r '.artifacts.weights.bytes // 0' "$M")
-      check "(( ab < 104857600 ))"                        "adapter < 100 MB ($(( ab / 1048576 )) MiB)"
+      # An adapter's size is set by how many modules carry one and at what rank, so a
+      # flat cap is wrong along the very axis this study varies: 90 MiB at L4 and
+      # 168 MiB at L5/L6 are both correct. Budget instead from the measured
+      # bytes-per-module-per-rank (~790 KB at r=64, i.e. ~12.3 KB per rank unit) with
+      # 2x headroom. The cap still lands far under a merged whisper-medium (1.5 GiB
+      # in fp16), so the check keeps doing its real job -- catching a full model
+      # written where an adapter belongs -- while passing a legitimately deep one.
+      local nmod rank cap
+      nmod=$(jq -r '.adaptation.target_modules.n_lora_layers // 0' "$M")
+      rank=$(jq -r '.adaptation.lora.r // 0' "$M")
+      if (( nmod > 0 && rank > 0 )); then
+        cap=$(( nmod * rank * 25000 ))
+      else
+        cap=$(( 400 * 1048576 ))   # manifest predates those fields: flat fallback
+      fi
+      check "(( ab < cap ))" \
+        "adapter within depth budget ($(( ab / 1048576 )) MiB < $(( cap / 1048576 )) MiB, ${nmod} modules @ r=${rank})"
       ;;
     trainable)
       check "[[ -f '$RUN/final.safetensors' ]]"           "trainable-only state dict saved"
