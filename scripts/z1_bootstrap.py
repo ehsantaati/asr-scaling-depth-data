@@ -91,15 +91,27 @@ def load_rerun(run_dir, eval_set):
 
 
 def load_legacy(run_dir, eval_set):
+    """Original-campaign predictions, which come in two shapes.
+
+    VoxPopuli runs scored more than one set, so predictions/references are dicts
+    keyed by set name (voxpopuli-en, voxpopuli-en-accented). GigaSpeech and
+    SPGISpeech runs scored one set and store plain lists. Accept both; for the flat
+    form the eval_set argument only labels the output.
+    """
     p = Path(run_dir) / "predictions.json"
     if not p.exists():
         p = Path(run_dir) / "inference_results" / "predictions.json"
     if not p.exists():
         return None
     d = json.load(p.open())
-    if eval_set not in d.get("references", {}):
+    refs, hyps = d.get("references"), d.get("predictions")
+    if isinstance(refs, dict):
+        if eval_set not in refs:
+            return None
+        refs, hyps = refs[eval_set], hyps[eval_set]
+    if not isinstance(refs, list) or not isinstance(hyps, list) or not refs:
         return None
-    return utt_counts(d["references"][eval_set], d["predictions"][eval_set])
+    return utt_counts(refs, hyps)
 
 
 def in_domain_set(run_dir):
@@ -227,9 +239,24 @@ def report_comparisons(cells, n_boot, rng, out):
                 })
 
 
-def report_legacy(root, eval_set, n_boot, rng, out):
+# Superseded original runs. `data_scaling/` was rerun on 2026-04-01 over the 2026-03-09
+# `data_scaling_old/`, and the manuscript reports the newer set: its SPGISpeech 10%
+# instability figure of 8.21 matches 008/0081/data_scaling/..._frac_0.1_subset_2
+# (8.226), where the older twin gives 5.415. Note that all_exps_final.csv still carries
+# the *older* values under the newer paths for 39 rows -- see PROGRESS §3.10. Bootstrap
+# the runs the paper actually reports, not the ones it superseded.
+SUPERSEDED = ("data_scaling_old", "_old", "repeat_inference")
+
+
+def report_legacy(root, eval_set, n_boot, rng, out, include_superseded=False):
     """Single-seed original cells: they stay single-seed but gain an interval."""
     runs = sorted({p.parent for p in Path(root).rglob("predictions.json")})
+    if not include_superseded:
+        skipped = [r for r in runs if any(s in str(r) for s in SUPERSEDED)]
+        runs = [r for r in runs if r not in set(skipped)]
+        if skipped:
+            print(f"skipping {len(skipped)} superseded run dirs "
+                  f"({', '.join(SUPERSEDED)}); pass --include-superseded to keep them")
     print(f"\n{'original run':<62}{'WER %':>9}{'95% CI (eval-set)':>24}")
     print("-" * 95)
     for run in runs:
@@ -257,6 +284,8 @@ def main():
     ap.add_argument("--legacy", help="original-campaign root, e.g. outputs/voxpopuli")
     ap.add_argument("--eval-set", help="eval set name, required with --legacy")
     ap.add_argument("--compare-only", action="store_true", help="skip per-cell intervals")
+    ap.add_argument("--include-superseded", action="store_true",
+                    help="also bootstrap data_scaling_old / repeat_inference runs")
     ap.add_argument("--n-boot", type=int, default=10000)
     ap.add_argument("--seed", type=int, default=42, help="bootstrap RNG seed")
     ap.add_argument("--out", default="outputs/rev/z1/bootstrap.json")
@@ -269,7 +298,8 @@ def main():
     if args.legacy:
         if not args.eval_set:
             raise SystemExit("--legacy requires --eval-set")
-        report_legacy(args.legacy, args.eval_set, args.n_boot, rng, out)
+        report_legacy(args.legacy, args.eval_set, args.n_boot, rng, out,
+                      include_superseded=args.include_superseded)
     else:
         cells = scan_cells(args.scan)
         if not cells:
