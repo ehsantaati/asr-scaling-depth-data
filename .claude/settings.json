@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(bash scripts/queue_status.sh jobs/b1_spgispeech.jobs)",
-      "Bash(.venv/bin/python -c ' *)"
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(timeout 600 .venv/bin/python scripts/z1_bootstrap.py --legacy outputs/voxpopuli --eval-set voxpopuli-en --n-boot 2000 --out outputs/rev/z1/bootstrap_legacy_voxpopuli.json)"
     ]
   }
 }
