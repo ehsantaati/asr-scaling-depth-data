@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash scripts/queue_status.sh jobs/b1_spgispeech.jobs)",
+      "Bash(.venv/bin/python -c ' *)"
+    ]
+  }
+}
