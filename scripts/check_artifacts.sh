@@ -126,7 +126,25 @@ audit_run() {
     nev=$(jq -s '[.[] | select(.kind=="eval" and .eval_loss!=null)] | length' "$J")
     n0=$(jq -s  '[.[] | select(.kind=="eval" and .step==0)] | length' "$J")
     check "(( $ntr >= 20 ))"                              "train rows with loss+grad_norm+lr: $ntr (>=20)"
-    check "(( $nev >= 5 ))"                               "eval rows with eval_loss: $nev (>=5)"
+    # How many evals a run can log is set by its length, not by a constant: a run logs
+    # floor(max_steps / eval_steps) evals plus the step-0 anchor. A flat floor of 5
+    # fails short runs that behaved perfectly -- SPGISpeech frac10 is 979 steps at
+    # eval_steps 250, so 4 is the correct and complete number. Derive the expectation
+    # instead, and keep a floor of 2 (step 0 plus one) so a run that logged almost
+    # nothing still fails.
+    local sc es want
+    sc=$(jq -r '.schedule.steps_completed // 0' "$M" 2>/dev/null)
+    es=$(jq -r '.provenance.config_resolved.eval_steps // 0' "$M" 2>/dev/null)
+    if (( sc > 0 && es > 0 )); then
+      # steps_completed, not max_steps: a fixed-budget run stops a little short when the
+      # post-filter stream runs dry (finding A8), and the evals it logged follow the
+      # steps it actually took.
+      want=$(( sc / es + 1 ))
+      (( want < 2 )) && want=2
+    else
+      want=5                                              # manifest predates the fields
+    fi
+    check "(( $nev >= want ))"                            "eval rows with eval_loss: $nev (>=$want for steps=$sc/eval_steps=$es)"
     check "(( $n0 >= 1 ))"                                "step-0 eval anchor present"
   fi
 
