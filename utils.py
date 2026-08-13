@@ -88,8 +88,14 @@ def trainable_state_dict(model, dtype=torch.float16) -> Dict[str, torch.Tensor]:
     }
 
 
-def save_trainable_state(model, path, dtype=torch.float16) -> Dict[str, Any]:
-    """Write a trainable-only checkpoint and assert the frozen-encoder invariant."""
+def save_trainable_state(model, path, dtype=torch.float16,
+                         allow_encoder_adaptation: bool = False) -> Dict[str, Any]:
+    """Write a trainable-only checkpoint and assert the frozen-encoder invariant.
+
+    ``allow_encoder_adaptation`` is the same scoped exception as in
+    train.set_trainable_parameters: action B5 adapts encoder layers on purpose and
+    must be able to persist them. It defaults to False, so a config that does not
+    ask for it still cannot leak an encoder tensor into a checkpoint."""
     from safetensors.torch import save_file
 
     path = Path(path)
@@ -97,10 +103,11 @@ def save_trainable_state(model, path, dtype=torch.float16) -> Dict[str, Any]:
     state = trainable_state_dict(model, dtype=dtype)
 
     leaked = [k for k in state if ".encoder." in k or k.startswith("model.encoder.")]
-    if leaked:
+    if leaked and not allow_encoder_adaptation:
         raise RuntimeError(
             f"Refusing to save: {len(leaked)} encoder tensors are marked trainable "
-            f"(first: {leaked[:3]}). The encoder must stay frozen."
+            f"(first: {leaked[:3]}). The encoder must stay frozen. If this is the B5 "
+            f"encoder experiment, set allow_encoder_adaptation: true in the config."
         )
     if not state:
         raise RuntimeError("Refusing to save an empty trainable state dict.")

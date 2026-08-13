@@ -163,6 +163,55 @@ B3_CELLS = [
 B3_SEED = 42
 
 
+# --- B5: encoder adaptation ------------------------------------------------------
+# R1-5.2: "a limited encoder-only or combined encoder-decoder adaptation experiment
+# would materially strengthen the argument that decoder-side adaptation captures the
+# dominant domain-specific gains". The manuscript asserts that; nothing in the study
+# tests it, because the encoder is frozen everywhere by construction.
+#
+# These are the only runs in the campaign OUTSIDE the frozen-encoder scope. They set
+# allow_encoder_adaptation: true, which is a deliberate scoped exception to the guards
+# in train.set_trainable_parameters and utils.save_trainable_state -- see configs.py.
+# Report them separately from everything else; they do not belong in the depth tables.
+#
+# The Whisper encoder has 24 layers and only 6 LoRA-wrappable modules each
+# (self_attn q/k/v/out, fc1, fc2) -- there is no cross-attention, unlike the decoder's
+# 10. So an encoder layer is cheaper to adapt than a decoder layer, and the arms below
+# are matched on layer count rather than parameter count.
+#
+# init_blocks entries are fully qualified here, unlike B1's. train.py matches them by
+# substring (`any(target in name ...)`), so a bare "layers.23" would hit encoder and
+# decoder alike once both carry LoRA, silently collapsing two init blocks into one.
+# B1 was safe only because its encoder modules were never wrapped.
+ENC_MODS = ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj",
+            "self_attn.out_proj", "fc1", "fc2"]
+
+B5_CELLS = [
+    # (tag,                    encoder layers,          include decoder L5?)
+    ("enc_top12_lora",         list(range(23, 11, -1)), False),
+    ("enc_all_lora",           list(range(23, -1, -1)), False),
+    ("enc_top12_dec_l5_lora",  list(range(23, 11, -1)), True),
+]
+B5_SEED = 42
+B5_DATASET = "voxpopuli"   # cheapest corpus; the question is qualitative
+
+
+def b5_targets(enc_layers, with_decoder):
+    t = [f"model.encoder.layers.{i}.{m}" for i in enc_layers for m in ENC_MODS]
+    if with_decoder:
+        t += lora_targets("L5")
+    return t
+
+
+def b5_init_blocks(enc_layers, with_decoder):
+    blocks = [[f"model.encoder.layers.{i}"] for i in enc_layers]
+    if with_decoder:
+        dec = LAYER_SETS["L5"]
+        blocks += [["proj_out", f"model.decoder.layers.{dec[0]}"]]
+        blocks += [[f"model.decoder.layers.{i}"] for i in dec[1:]]
+    return blocks
+
+
 # --- B4: LoRA rank sensitivity ----------------------------------------------------
 # R1-5.4: "the LoRA rank is selected only for L0 and then fixed for all deeper
 # configurations ... provide at least a limited rank-sensitivity analysis for a deeper
@@ -222,7 +271,8 @@ def init_blocks(depth):
 
 
 def render(dataset, depth, fraction, method, out_dir, lr=LR_BASE, batch="b1",
-           rank=RANK_BASE):
+           rank=RANK_BASE, tag_override=None, targets_override=None,
+           init_blocks_override=None, extra_yaml=""):
     ds = DATASETS[dataset]
     name = ds["name"]
     is_lora = method == "lora"
@@ -233,6 +283,8 @@ def render(dataset, depth, fraction, method, out_dir, lr=LR_BASE, batch="b1",
         tag += f"_{lr_tag(lr)}"
     if rank != RANK_BASE:
         tag += f"_r{rank}"
+    if tag_override:
+        tag = tag_override
     # fraction 1.0 -> fixed-budget (num_epochs 0, steps from the FULL dataset);
     # fraction < 1 -> the data-limited cells cited in the regime comparison.
     num_epochs = 0 if fraction == 1.0 else 1
@@ -278,11 +330,11 @@ num_subsets: 1
         # capacity, and B4 could not then attribute anything to rank (R1-5.4).
         L.append(f"\nlora_config:\n  r: {rank}\n  lora_alpha: {2 * rank}\n"
                  f"  lora_dropout: 0.1\n  init_blocks:\n")
-        for b in init_blocks(depth):
+        for b in (init_blocks_override or init_blocks(depth)):
             L.append("    - [" + ", ".join(f'"{x}"' for x in b) + "]\n")
-        targets = lora_targets(depth)
+        targets = targets_override or lora_targets(depth)
     else:
-        targets = full_ft_targets(depth)
+        targets = targets_override or full_ft_targets(depth)
 
     L.append("\ntarget_modules:\n")
     L += [f'  - "{t}"\n' for t in targets]
@@ -321,6 +373,9 @@ decode_force_language: true
 save_mode: "auto"
 log_dataset_metadata: false
 """)
+
+    if extra_yaml:
+        L.append(extra_yaml)
 
     path = Path(out_dir) / dataset / f"{tag}.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -385,6 +440,39 @@ def emit_b3(phase, out_dir, as_jobs):
         print(f"\n  {len(cells)} cells -> {len(cells)} runs (1 seed each)")
 
 
+def emit_b5(phase, out_dir, as_jobs):
+    """B5 goes through render() with explicit targets: encoder modules have no place in
+    the depth ladder, so they cannot be derived from a LAYER_SETS entry."""
+    if phase not in (B5_DATASET, "all"):
+        print(f"# B5 is {B5_DATASET}-only; nothing for phase {phase}")
+        return
+    extra = ("\n# Scoped exception: this run adapts encoder layers on purpose (R1-5.2),\n"
+             "# and is therefore OUTSIDE the frozen-encoder scope every other claim in the\n"
+             "# study assumes. Report it separately from the depth tables.\n"
+             "allow_encoder_adaptation: true\n")
+    lines = []
+    for tag, enc_layers, with_dec in B5_CELLS:
+        path, n_targets = render(
+            B5_DATASET, "L5", 1.0, "lora", out_dir, batch="b5", tag_override=tag,
+            targets_override=b5_targets(enc_layers, with_dec),
+            init_blocks_override=b5_init_blocks(enc_layers, with_dec),
+            extra_yaml=extra,
+        )
+        if not as_jobs:
+            print(f"  {path}  ({n_targets} target modules, "
+                  f"{len(enc_layers)} encoder layers, decoder L5: {with_dec})")
+        lines.append(f"{B5_DATASET}_{tag}_s{B5_SEED}\t{path}\t{B5_SEED}\ts{B5_SEED}\t"
+                     f"outputs/rev/b5/{B5_DATASET}/{tag}\t-")
+    if as_jobs:
+        print("# B5 encoder adaptation -- generated by scripts/gen_campaign_configs.py")
+        print("# OUTSIDE the frozen-encoder scope; report separately from the depth tables.")
+        print("# Reference arm is the existing decoder-only outputs/rev/b1/voxpopuli/l5_lora.")
+        print("# job_id\tconfig\tseed\trun_name\toutput_dir\textra")
+        print("\n".join(lines))
+    else:
+        print(f"\n  {len(B5_CELLS)} cells -> {len(B5_CELLS)} runs (1 seed each)")
+
+
 def emit_simple(cells, batch, phase, out_dir, as_jobs, seed, header):
     """B2/B4: one run per cell, single seed, no tier logic."""
     sel = [c for c in cells if phase == "all" or c[0] == phase]
@@ -412,7 +500,7 @@ def emit_simple(cells, batch, phase, out_dir, as_jobs, seed, header):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", required=True, choices=list(DATASETS) + ["all"])
-    ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4"])
+    ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5"])
     ap.add_argument("--out", default=None, help="default: configs/rev/<batch>")
     ap.add_argument("--jobs", action="store_true", help="print job-list lines instead")
     args = ap.parse_args()
@@ -422,6 +510,8 @@ def main():
         emit_b1(args.phase, out_dir, args.jobs)
     elif args.batch == "b3":
         emit_b3(args.phase, out_dir, args.jobs)
+    elif args.batch == "b5":
+        emit_b5(args.phase, out_dir, args.jobs)
     elif args.batch == "b4":
         emit_simple(B4_CELLS, "b4", args.phase, out_dir, args.jobs, B4_SEED,
                     ["LoRA rank sensitivity at L5 (R1-5.4, R3-4). r=64 is the B1 baseline.",

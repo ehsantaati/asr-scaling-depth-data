@@ -53,12 +53,21 @@ def _matches_target(name: str, target: str) -> bool:
 
 
 def set_trainable_parameters(
-    model: torch.nn.Module, target_modules: Optional[List[str]]
+    model: torch.nn.Module,
+    target_modules: Optional[List[str]],
+    allow_encoder_adaptation: bool = False,
 ) -> List[str]:
     """Freeze everything except parameters selected by ``target_modules``.
 
     Returns the resolved trainable parameter names so they can be recorded in the run
     manifest (R1-7.2).
+
+    ``allow_encoder_adaptation`` is a scoped exception for action B5 only, which exists
+    to answer R1-5.2 -- whether decoder-side adaptation really captures the dominant
+    domain-specific gains -- and cannot be run without adapting encoder layers. It
+    defaults to False so every other run in the campaign is still protected by the
+    frozen-encoder invariant, and it must be set explicitly in the config, so any run
+    that used it says so in its own manifest. Do not flip the default.
     """
     if not target_modules:
         # Previously this returned silently, leaving the whole model -- encoder
@@ -82,10 +91,18 @@ def set_trainable_parameters(
             param.requires_grad = False
 
     leaked = [n for n in trainable_names if ".encoder." in n or n.startswith("model.encoder.")]
-    if leaked:
+    if leaked and not allow_encoder_adaptation:
         raise ValueError(
             f"target_modules selected {len(leaked)} encoder parameters "
-            f"(first: {leaked[:3]}). The encoder must remain frozen."
+            f"(first: {leaked[:3]}). The encoder must remain frozen. If this is the B5 "
+            f"encoder experiment, set allow_encoder_adaptation: true in the config."
+        )
+    if leaked:
+        logging.warning(
+            "allow_encoder_adaptation is set: %d encoder parameters are trainable "
+            "(first: %s). This run is OUTSIDE the frozen-encoder scope that every other "
+            "claim in the study assumes, and must be reported separately.",
+            len(leaked), leaked[:3],
         )
 
     logging.info(f"Set trainability based on target_modules: {target_modules}")
@@ -416,7 +433,12 @@ def main():
                     logging.info(f"Re-initialised {n_reset_total} LoRA modules across init_blocks.")
 
             else:
-                set_trainable_parameters(model, config.target_modules)
+                set_trainable_parameters(
+                    model,
+                    config.target_modules,
+                    allow_encoder_adaptation=getattr(
+                        config, "allow_encoder_adaptation", False),
+                )
 
             resolved_modules = mf.resolve_target_modules(
                 model, config.target_modules, is_lora=config.lora_config is not None
@@ -571,7 +593,11 @@ def main():
             cost_cb = cb.CostCallback()
             ckpt_cb = cb.PeriodicTrainableCheckpointCallback(
                 ckpt_dir=output_dir / "ckpt",
-                save_fn=lambda m, p: save_trainable_state(m, p),
+                save_fn=lambda m, p: save_trainable_state(
+                    m, p,
+                    allow_encoder_adaptation=getattr(
+                        config, "allow_encoder_adaptation", False),
+                ),
                 fraction=config.checkpoint_fraction,
                 max_steps=calculated_max_steps,
                 eval_steps=config.eval_steps,
@@ -624,7 +650,11 @@ def main():
                     )
                 elif save_mode == "trainable":
                     weight_info.update(
-                        save_trainable_state(model, output_dir / "final.safetensors")
+                        save_trainable_state(
+                            model, output_dir / "final.safetensors",
+                            allow_encoder_adaptation=getattr(
+                                config, "allow_encoder_adaptation", False),
+                        )
                     )
                 elif save_mode == "full":
                     trainer.save_model()

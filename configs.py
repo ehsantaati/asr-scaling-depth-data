@@ -170,6 +170,15 @@ class TrainConfig(BaseConfig):
     # waste); "full" restores the old behaviour. Default resolves by method.
     save_mode: str = "auto"  # auto | adapter | trainable | full
 
+    # Scoped exception to the frozen-encoder invariant, for action B5 only (R1-5.2:
+    # does decoder-side adaptation really capture the dominant domain-specific gains?).
+    # That experiment cannot be run without adapting encoder layers, but every other
+    # claim in the study is scoped to a frozen encoder, so the guards in
+    # train.set_trainable_parameters and utils.save_trainable_state stay armed unless a
+    # config sets this explicitly. It is recorded in the resolved config of every run,
+    # so a B5 run is identifiable from its manifest alone. Do not default it to True.
+    allow_encoder_adaptation: bool = False
+
     def get_train_sets(self) -> List[types.DatasetConfig]:
         return [types.DatasetConfig.from_dict(ds) for ds in self.train_sets]
 
