@@ -214,18 +214,24 @@ audit_run() {
     adapter)
       check "[[ -f '$RUN/adapter/adapter_model.safetensors' ]]" "LoRA adapter saved"
       local ab; ab=$(jq -r '.artifacts.weights.bytes // 0' "$M")
-      # An adapter's size is set by how many modules carry one and at what rank, so a
-      # flat cap is wrong along the very axis this study varies: 90 MiB at L4 and
-      # 168 MiB at L5/L6 are both correct. Budget instead from the measured
-      # bytes-per-module-per-rank (~790 KB at r=64, i.e. ~12.3 KB per rank unit) with
-      # 2x headroom. The cap still lands far under a merged whisper-medium (1.5 GiB
-      # in fp16), so the check keeps doing its real job -- catching a full model
-      # written where an adapter belongs -- while passing a legitimately deep one.
+      # An adapter's size is set by how many modules carry one, how big those modules
+      # are, and at what rank -- so a flat cap is wrong along the very axis this study
+      # varies. Two corrections have been needed here:
+      #   1. A flat 100 MB failed L5/L6 (168 MiB is correct at r=64).
+      #   2. A uniform per-module budget then failed L0, because proj_out is not a
+      #      typical module: it is 1024 x 51865, so LoRA on it alone is ~13.5 MB at
+      #      r=64 -- more than a flat per-module allowance grants for the whole run.
+      # Budget the two module classes separately, both linear in rank:
+      #   proj_out         r x (1024 + 51865) x 4 B  ~= 211,000 B per rank unit
+      #   decoder modules  measured (95.4 MB - 13.5 MB)/120 at r=64 ~= 10,656 B per unit
+      # That reproduces the observed sizes almost exactly (L4 95.4 MB, L5 177.2 MB), so
+      # 2x headroom is genuine headroom. The cap stays far below a merged
+      # whisper-medium (1.5 GiB fp16), which is the failure this check exists to catch.
       local nmod rank cap
       nmod=$(jq -r '.adaptation.target_modules.n_lora_layers // 0' "$M")
       rank=$(jq -r '.adaptation.lora.r // 0' "$M")
       if (( nmod > 0 && rank > 0 )); then
-        cap=$(( nmod * rank * 25000 ))
+        cap=$(( 2 * rank * (211000 + (nmod - 1) * 10656) ))
       else
         cap=$(( 400 * 1048576 ))   # manifest predates those fields: flat fallback
       fi
