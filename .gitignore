@@ -198,3 +198,4 @@ cython_debug/
 # Job queue runtime state (jobs/campaign.jobs IS tracked)
 /jobs/status/
 /jobs/*.lock
+/figures
