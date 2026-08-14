@@ -105,8 +105,23 @@ audit_run() {
   check "jq -e '.provenance.config_sha256 != null' '$M'"  "resolved-config hash recorded"
   check "jq -e '.adaptation.target_modules.trainable_parameter_names | length > 0' '$M'" \
                                                           "resolved target modules non-empty"
-  check "jq -e '.adaptation.target_modules.encoder_parameters_trainable | length == 0' '$M'" \
+  # The frozen-encoder invariant, enforced here for EVERY run. train.py only asserts it
+  # on the full-FT path -- LoRA goes through PEFT and never calls
+  # set_trainable_parameters -- so this is the check that actually covers a LoRA config
+  # that names encoder modules. It fails late (after the GPU time is spent) rather than
+  # early, but nothing can enter the results without passing it.
+  #
+  # Action B5 is the sanctioned exception (R1-5.2): it adapts the encoder on purpose and
+  # sets allow_encoder_adaptation in its config. Invert the check for those runs rather
+  # than skipping it, so a B5 run that somehow adapted *no* encoder parameter is still
+  # caught -- that would mean the target list silently matched nothing.
+  if jq -e '.provenance.config_resolved.allow_encoder_adaptation == true' "$M" >/dev/null 2>&1; then
+    check "jq -e '.adaptation.target_modules.encoder_parameters_trainable | length > 0' '$M'" \
+      "encoder adaptation opted in (B5): encoder parameters ARE trainable, $(jq -r '.adaptation.target_modules.encoder_parameters_trainable | length' "$M") of them"
+  else
+    check "jq -e '.adaptation.target_modules.encoder_parameters_trainable | length == 0' '$M'" \
                                                           "no encoder parameter is trainable"
+  fi
   check "jq -e '.optimization.optim != null and .optimization.lr_scheduler_type != null and .optimization.max_grad_norm != null' '$M'" \
                                                           "optimizer/scheduler/clipping recorded (R1-7.1)"
   check "jq -e '.schedule.max_steps > 0 and .schedule.steps_completed > 0' '$M'" \
