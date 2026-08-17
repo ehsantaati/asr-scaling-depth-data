@@ -6,3 +6,4 @@ gigaspeech_l5_lora_r32_s42	configs/rev/b4/gigaspeech/l5_lora_r32.yaml	42	s42	out
 gigaspeech_l5_lora_r128_s42	configs/rev/b4/gigaspeech/l5_lora_r128.yaml	42	s42	outputs/rev/b4/gigaspeech/l5_lora_r128	-
 spgispeech_l5_lora_r32_s42	configs/rev/b4/spgispeech/l5_lora_r32.yaml	42	s42	outputs/rev/b4/spgispeech/l5_lora_r32	-
 spgispeech_l5_lora_r128_s42	configs/rev/b4/spgispeech/l5_lora_r128.yaml	42	s42	outputs/rev/b4/spgispeech/l5_lora_r128	-
+voxpopuli_l5_lora_r32_s42	configs/rev/b4/voxpopuli/l5_lora_r32.yaml	42	s42	outputs/rev/b4/voxpopuli/l5_lora_r32	-

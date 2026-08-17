@@ -228,6 +228,15 @@ B4_CELLS = [
     ("gigaspeech", "L5", "lora", 128),
     ("spgispeech", "L5", "lora", 32),
     ("spgispeech", "L5", "lora", 128),
+    # Added after B5: a budget control, not a rank result. B5's encoder-only arms train
+    # 14.2M and 28.3M parameters against decoder L5's 44.3M, so "decoder beats encoder"
+    # was confounded with budget. Decoder L5 at r=32 is 22.1M, which together with the
+    # existing r=64 point *brackets* enc_all_lora at 28.3M. If enc_all lands between the
+    # two decoder points, budget explains the gap and adaptation site does not separate
+    # them; if the smaller decoder point still wins, the site effect is real. VoxPopuli
+    # because that is the only corpus B5 ran on -- a cross-corpus control would not
+    # control anything.
+    ("voxpopuli",  "L5", "lora", 32),
 ]
 
 # --- B2: shallow anchors ----------------------------------------------------------
