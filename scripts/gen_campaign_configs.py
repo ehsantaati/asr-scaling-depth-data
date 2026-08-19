@@ -255,6 +255,29 @@ B2_CELLS = [
 ]
 B4_SEED = B2_SEED = 42
 
+# --- B10: intermediate depths ------------------------------------------------------
+# R1-5.3 asks for intermediate configurations so the depth axis is not just its
+# endpoints. L2 and L3 were dropped from the multi-seed design to save compute, which
+# left the depth curve with a gap between L0 (proj_out only) and L4 (upper half of the
+# decoder) -- exactly the region where the shallow-end damage seen at L0 must turn into
+# the gains seen at L4.
+#
+# Single seed (42), like L0. These are anchors that shape a curve, not claim-bearing
+# cells: nothing in the paper turns on an L2-vs-L3 difference, and the measured seed SD
+# at neighbouring depths is 0.02-0.11 pp. Report them with the same dagger L0 carries.
+#
+# Method coverage mirrors what each corpus already has, rather than filling the grid:
+# SPGISpeech has full FT at L5 only, so adding full FT at L2/L3 there would introduce a
+# method comparison at a depth where no counterpart exists elsewhere in that corpus.
+B10_CELLS = [
+    ("voxpopuli",  "L2", "lora"), ("voxpopuli",  "L2", "full"),
+    ("voxpopuli",  "L3", "lora"), ("voxpopuli",  "L3", "full"),
+    ("spgispeech", "L2", "lora"), ("spgispeech", "L3", "lora"),
+    ("gigaspeech", "L2", "lora"), ("gigaspeech", "L2", "full"),
+    ("gigaspeech", "L3", "lora"), ("gigaspeech", "L3", "full"),
+]
+B10_SEED = 42
+
 
 def full_ft_targets(depth):
     t = ["proj_out", "model.decoder.layer_norm"]
@@ -509,7 +532,7 @@ def emit_simple(cells, batch, phase, out_dir, as_jobs, seed, header):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", required=True, choices=list(DATASETS) + ["all"])
-    ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5"])
+    ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5", "b10"])
     ap.add_argument("--out", default=None, help="default: configs/rev/<batch>")
     ap.add_argument("--jobs", action="store_true", help="print job-list lines instead")
     args = ap.parse_args()
@@ -519,6 +542,10 @@ def main():
         emit_b1(args.phase, out_dir, args.jobs)
     elif args.batch == "b3":
         emit_b3(args.phase, out_dir, args.jobs)
+    elif args.batch == "b10":
+        emit_simple(B10_CELLS, "b10", args.phase, out_dir, args.jobs, B10_SEED,
+                    ["Intermediate depths L2/L3 (R1-5.3), single seed like L0.",
+                     "Anchors that complete the depth curve; not claim-bearing cells."])
     elif args.batch == "b5":
         emit_b5(args.phase, out_dir, args.jobs)
     elif args.batch == "b4":
