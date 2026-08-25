@@ -7,7 +7,7 @@ generalization gaps, checkpoint evolution. R1-4.1 says the instability and memor
 explanations are "plausible but not directly demonstrated". These figures are the
 demonstration.
 
-Four figures, each answering a specific comment:
+Five figures, each answering a specific comment:
 
   fig1_loss_curves      train + held-out curves, 2x2: {fixed budget,
                         data-limited} x {training, held-out}               R1-4.2,
@@ -15,6 +15,7 @@ Four figures, each answering a specific comment:
   fig2_generalization   final train loss against test WER                R1-4.1, R1-4.3
   fig3_depth_wer        WER against depth, per corpus, with seed SD      R1-2.1, R1-2.3
   fig4_ood_tradeoff     in-domain gain against out-of-domain cost        R1-5.5, R3-10
+  fig5_data_scaling     GigaSpeech WER against data fraction at L4               R1-5.3
 
 Design decisions that are not arbitrary:
 
@@ -65,7 +66,11 @@ IN_DOMAIN = {
     "spgispeech": "spgispeech_2",
 }
 CORPUS_LABEL = {"voxpopuli": "VoxPopuli", "spgispeech": "SPGISpeech", "gigaspeech": "GigaSpeech"}
-DEPTH_ORDER = ["l0", "l4", "l5", "l6"]
+# Ordinal, not linear in decoder blocks: L0=0, L2=1, L3=2, L4=12, L5=L6=24. B10
+# filled in L2/L3, which makes the non-linearity visible enough to need saying on
+# the axis -- otherwise the L3->L4 step reads as one increment rather than ten.
+DEPTH_ORDER = ["l0", "l2", "l3", "l4", "l5", "l6"]
+DEPTH_BLOCKS = {"l0": 0, "l2": 1, "l3": 2, "l4": 12, "l5": 24, "l6": 24}
 
 
 def style():
@@ -168,9 +173,11 @@ FIG1_ROWS = [
         "smooth_eval": 0.03,
         # Zoom the inset from the best checkpoint onward: everything to the right of
         # this line is budget spent after held-out performance stopped improving.
-        "zoom_from": 4250,
-        "marker": {"step": 4250, "cell": "l5_full", "title": "best checkpoint",
-                   "seed_agreement": True},
+        # zoom_from is filled in from the marker span: the inset starts where the
+        # last seed's held-out minimum is, so it covers only post-peak training.
+        "zoom_from": None,
+        "marker": {"kind": "span", "batch": "b1", "cell": "l5_full",
+                   "title": "held-out loss bottoms out\nhere or earlier"},
         "note_train": "still falling",
         "note_held": "no further gain",
         "curves": [
@@ -191,8 +198,8 @@ FIG1_ROWS = [
         "smooth_train": 0.05,
         "smooth_eval": 0.0,
         "zoom_from": 500,
-        "marker": {"step": 1140, "cell": "l5_lora_frac10", "title": "10% data budget ends",
-                   "seed_agreement": False},
+        "marker": {"kind": "line", "step": 1140, "cell": "l5_lora_frac10",
+                   "title": "10% data budget ends"},
         "note_train": "10% run ends",
         "note_held": "10% run ends",
         # Both series are LoRA, so colour cannot separate them here without breaking
@@ -274,21 +281,26 @@ def _plateau_inset(ax, drawn, x_from, x_to, note, log_y=False):
     return axin
 
 
-def _best_step_agreement(mk, corpus):
-    """How many seeds of the marked cell actually selected the marked checkpoint.
+def _heldout_minima(batch, corpus, cell):
+    """Per-seed step at which held-out loss is lowest, from the full eval log.
 
-    Read from the B8 records rather than hardcoded, so the label stays true if the
-    cell is ever reseeded.
+    NOT the B8 best-checkpoint step. B8 selects over 9 saved checkpoints spaced
+    4250 steps apart, and on GigaSpeech the eval loss is already on a flat, noisy
+    plateau by the first of them -- its range across those 9 samples is ~5x the
+    step-to-step noise, so which one wins is close to arbitrary. The eval log is
+    sampled every 250 steps and shows all three seeds bottoming out between 750 and
+    6000. Marking the real minima is both more accurate and a stronger claim.
+
+    Step 0 is excluded: that is the eval_on_start measurement of the un-adapted
+    model, which is every run's true minimum on nothing but a technicality.
     """
-    hit = tot = 0
-    for spec_batch in ("b1", "b2", "b3", "b4", "b5"):
-        d = Path("outputs/rev", spec_batch, corpus, mk["cell"])
-        if not d.exists():
-            continue
-        for bp in sorted(d.glob("*/best_vs_final.json")):
-            tot += 1
-            hit += int(json.load(bp.open())["best_step"] == mk["step"])
-    return hit, tot
+    mins = []
+    for _, rows in load_cell(batch, corpus, cell):
+        pts = [(r["step"], r["eval_loss"]) for r in rows
+               if r.get("kind") == "eval" and r.get("eval_loss") is not None and r["step"] > 0]
+        if pts:
+            mins.append(min(pts, key=lambda t: t[1])[0])
+    return sorted(mins)
 
 
 def fig1_loss_curves(out):
@@ -312,7 +324,7 @@ def fig1_loss_curves(out):
     from -- run directories, n, and which held-out quantity the right column used.
     """
     fig, axes = plt.subplots(2, 2, figsize=(9.6, 7.4))
-    report = []
+    report, markers = [], []
 
     for ri, row in enumerate(FIG1_ROWS):
         ax_tr, ax_ho = axes[ri, 0], axes[ri, 1]
@@ -364,6 +376,18 @@ def fig1_loss_curves(out):
                 "runs": [m["run"]["output_dir"] for m, _ in runs],
             })
 
+        # Resolve the marker before the insets: the span's right edge sets where the
+        # zoom starts.
+        mk = dict(row["marker"]) if row["marker"] else None
+        if mk and mk["kind"] == "span":
+            mins = _heldout_minima(mk["batch"], row["corpus"], mk["cell"])
+            mk["lo"], mk["hi"], mk["n"] = (min(mins), max(mins), len(mins)) if mins else (None, None, 0)
+            mk["mins"] = mins
+        if mk:
+            mk["regime"], mk["corpus"] = row["regime"], row["corpus"]
+            markers.append(mk)
+        zoom_from = row["zoom_from"] or (mk and mk.get("hi")) or 0
+
         if len(ho_sources - {"missing"}) > 1:
             print(f"  WARNING: {row['regime']} mixes held-out sources: {sorted(ho_sources)}")
 
@@ -383,9 +407,9 @@ def fig1_loss_curves(out):
 
         # Plateau zooms. These are added before the annotations so the direct labels
         # and the best-checkpoint tag can be placed clear of them.
-        ins_tr = _plateau_inset(ax_tr, drawn_tr, row["zoom_from"], row["max_steps"],
+        ins_tr = _plateau_inset(ax_tr, drawn_tr, zoom_from, row["max_steps"],
                                 row["note_train"])
-        ins_ho = _plateau_inset(ax_ho, drawn_ho, row["zoom_from"], row["max_steps"],
+        ins_ho = _plateau_inset(ax_ho, drawn_ho, zoom_from, row["max_steps"],
                                 row["note_held"])
 
         # Final in-domain WER, printed at the end of each held-out curve. Placed in
@@ -407,27 +431,36 @@ def fig1_loss_curves(out):
         # budget: to the right of this line the training loss keeps falling while
         # held-out performance has already turned. Drawn in both panels of the row,
         # and in both insets, so the divergence is read off one step value.
-        mk = row["marker"]
         if mk:
             mcol = next((c["c"] for c in row["curves"] if c["cell"] == mk["cell"]), MUTED)
-            tag = [mk["title"], f"step {mk['step']:,} of {row['max_steps']:,}"]
-            if mk.get("seed_agreement"):
-                # Say "k of n seeds" rather than "the best checkpoint": on GigaSpeech
-                # deep FT the val-loss-selected checkpoint is step 4250 in 2 of 3
-                # seeds and step 34000 in the third. This figure goes into a
-                # rebuttal; an unqualified claim there is a gift to a reviewer.
-                hit, tot = _best_step_agreement(mk, row["corpus"])
-                tag.append(f"({hit} of {tot} seeds)")
-            for ax in (ax_tr, ax_ho):
-                ax.axvline(mk["step"], color=mcol, ls=(0, (3, 3)), lw=1.1, alpha=0.9, zorder=1)
-                # Upper-left band: left of the inset, above every curve at this step.
-                ax.annotate("\n".join(tag), xy=(mk["step"], 0.97),
-                            xycoords=("data", "axes fraction"),
-                            xytext=(4, 0), textcoords="offset points",
-                            fontsize=6.8, color=mcol, va="top", ha="left", linespacing=1.35)
-            for axin in (ins_tr, ins_ho):
-                if axin is not None:
-                    axin.axvline(mk["step"], color=mcol, ls=(0, (3, 3)), lw=1.0, alpha=0.9, zorder=1)
+            if mk["kind"] == "span" and mk["lo"] is not None:
+                # A span, not a rule: what the runs show is a RANGE of per-seed
+                # held-out minima, and the figure's other bands already mean
+                # "observed seed range", so this reads consistently with them.
+                lo, hi = mk["lo"], mk["hi"]
+                tag = f"{mk['title']}\n(steps {lo:,}–{hi:,}, all {mk['n']} seeds)"
+                for ax in (ax_tr, ax_ho):
+                    ax.axvspan(lo, hi, color=mcol, alpha=0.13, lw=0, zorder=1)
+                    for x in (lo, hi):
+                        ax.axvline(x, color=mcol, ls=(0, (3, 3)), lw=1.0, alpha=0.85, zorder=1)
+                    ax.annotate(tag, xy=(lo, 0.99), xycoords=("data", "axes fraction"),
+                                xytext=(3, 0), textcoords="offset points",
+                                fontsize=6.8, color=mcol, va="top", ha="left",
+                                linespacing=1.35)
+            elif mk["kind"] == "line":
+                tag = f"{mk['title']}\nstep {mk['step']:,} of {row['max_steps']:,}"
+                for ax in (ax_tr, ax_ho):
+                    ax.axvline(mk["step"], color=mcol, ls=(0, (3, 3)), lw=1.1,
+                               alpha=0.9, zorder=1)
+                    ax.annotate(tag, xy=(mk["step"], 0.99),
+                                xycoords=("data", "axes fraction"),
+                                xytext=(4, 0), textcoords="offset points",
+                                fontsize=6.8, color=mcol, va="top", ha="left",
+                                linespacing=1.35)
+                for axin in (ins_tr, ins_ho):
+                    if axin is not None:
+                        axin.axvline(mk["step"], color=mcol, ls=(0, (3, 3)), lw=1.0,
+                                     alpha=0.9, zorder=1)
 
         head = (f"{row['regime']} · {CORPUS_LABEL[row['corpus']]}\n"
                 f"in-domain test set, n = {row['denom']:,} utterances")
@@ -447,6 +480,12 @@ def fig1_loss_curves(out):
         "Per-seed curves are smoothed over a short step window before the envelope is "
         "taken, so the band shows seed spread rather than mini-batch logging noise.",
     ]
+    span = next((m for m in markers if m["kind"] == "span" and m.get("lo") is not None), None)
+    if span:
+        caption.append(
+            "The shaded vertical span is the observed range of per-seed held-out "
+            "minima, read from the 250-step eval log —\nnot the 9-checkpoint B8 "
+            "selection grid, whose spacing is coarser than the peak is sharp.")
     singles = [r["label"] for r in report if r["n"] == 1]
     if singles:
         caption.append(
@@ -454,18 +493,18 @@ def fig1_loss_curves(out):
             "line is one run, and its seed spread is unmeasured, not small.")
     fig.text(0.5, 0.005, "\n".join(caption),
              ha="center", va="bottom", fontsize=7.5, color=INK2)
-    fig.subplots_adjust(left=0.075, right=0.79, top=0.885, bottom=0.11,
+    fig.subplots_adjust(left=0.075, right=0.79, top=0.885, bottom=0.155,
                         hspace=0.52, wspace=0.60)
     fig.savefig(out / "fig1_loss_curves.png")
     fig.savefig(out / "fig1_loss_curves.pdf")
     plt.close(fig)
-    return report
+    return {"curves": report, "markers": markers}
 
 
 def cell_summary():
     """Every cell: final train loss, in-domain WER, OOD WER, method, depth."""
     rows = []
-    for batch in ("b1", "b2", "b3", "b4", "b5"):
+    for batch in ("b1", "b2", "b3", "b4", "b5", "b10", "b11"):
         root = Path("outputs/rev", batch)
         if not root.exists():
             continue
@@ -513,20 +552,37 @@ def baselines():
 
 def fig2_generalization(rows, out):
     """R1-4.1/4.3: lower training loss with worse test WER is the gap, drawn."""
+    # L2/L3 (B10) included: the gap is absent at shallow depth and opens with
+    # capacity, which is the mechanism R1-4.1 asks to see rather than the endpoint.
     sub = [r for r in rows if r["corpus"] == "gigaspeech" and r["train_loss"]
-           and r["cell"] in ("l4_lora", "l5_lora", "l4_full", "l5_full", "l6_full")]
+           and r["cell"] in ("l2_lora", "l3_lora", "l4_lora", "l5_lora",
+                             "l2_full", "l3_full", "l4_full", "l5_full", "l6_full")]
     fig, ax = plt.subplots(figsize=(4.6, 3.4))
     for r in sub:
         m = METHOD[r["method"]]
         ax.errorbar(r["train_loss"], r["wer"], yerr=r["sd"] if r["sd"] else np.nan, fmt="o",
                     ms=8, mfc=m["c"], mec="white", mew=1.4, ecolor=m["c"],
                     elinewidth=1.4, capsize=3, zorder=3)
-        # Left-hand cluster labels to the right, right-hand ones to the left, so
-        # neither runs off the axis or into its neighbour.
-        left = r["train_loss"] < 0.185
+
+    # Direct labels, placed greedily. With only L4-L6 the simple "left half labels
+    # right, right half labels left" rule was enough; B10 added L2/L3 and put four
+    # points inside a 0.02 x 0.1 box, where that rule stacks labels on top of each
+    # other. So: keep the side rule for horizontal placement, and push a label down
+    # a notch for every already-placed label it would land on.
+    ax.autoscale_view()
+    (x0, x1), (y0, y1) = ax.get_xlim(), ax.get_ylim()
+    nx = lambda v: (v - x0) / (x1 - x0)
+    ny = lambda v: (v - y0) / (y1 - y0)
+    mid = st.median([r["train_loss"] for r in sub])
+    placed = []
+    for r in sorted(sub, key=lambda r: -r["wer"]):
+        px, py = nx(r["train_loss"]), ny(r["wer"])
+        clash = sum(1 for qx, qy in placed if abs(qx - px) < 0.13 and abs(qy - py) < 0.055)
+        placed.append((px, py))
+        left = r["train_loss"] < mid
         ax.annotate(r["cell"].replace("_", " ").upper(),
                     xy=(r["train_loss"], r["wer"]),
-                    xytext=(9 if left else -9, 0), textcoords="offset points",
+                    xytext=(10 if left else -10, -12 * clash), textcoords="offset points",
                     ha="left" if left else "right", va="center",
                     fontsize=7.5, color=INK2)
     for meth in ("lora", "full"):
@@ -539,8 +595,9 @@ def fig2_generalization(rows, out):
     ax.set_ylabel("Test WER %  (lower = generalizes better)")
     ax.grid(True)
     ax.set_axisbelow(True)
-    ax.legend(loc="lower left")
-    ax.set_title("GigaSpeech: full fine-tuning fits better and generalizes worse",
+    ax.legend(loc="upper left")
+    ax.set_title("GigaSpeech: full fine-tuning fits better, and generalizes worse "
+                 "as depth grows",
                  color=INK, loc="left")
     fig.savefig(out / "fig2_generalization.png")
     fig.savefig(out / "fig2_generalization.pdf")
@@ -577,14 +634,16 @@ def fig3_depth_wer(rows, out):
         ax.set_xticks(range(len(DEPTH_ORDER)))
         ax.set_xticklabels([d.upper() for d in DEPTH_ORDER])
         ax.set_title(CORPUS_LABEL[corpus], color=INK, loc="left")
-        ax.set_xlabel("Adaptation depth (decoder)")
+        ax.set_xlabel("Adaptation depth (decoder), ordinal")
         ax.grid(axis="y")
         ax.set_axisbelow(True)
         ax.margins(x=0.42)
     axes[0].set_ylabel("In-domain WER %")
     axes[0].legend(loc="upper right")
-    fig.suptitle("Error bars are the seed SD; dotted rule is the un-adapted model",
-                 fontsize=9, color=INK2, y=1.03)
+    fig.suptitle("Error bars are the seed SD; dotted rule is the un-adapted model.  "
+                 "Depth is ORDINAL — L2/L3/L4/L5 add 1 / 2 / 12 / 24 decoder blocks, "
+                 "so equal tick spacing is not equal capacity.",
+                 fontsize=8, color=INK2, y=1.05)
     fig.savefig(out / "fig3_depth_wer.png")
     fig.savefig(out / "fig3_depth_wer.pdf")
     plt.close(fig)
@@ -652,10 +711,11 @@ HELD_OUT_DESC = {
 }
 
 
-def print_fig1_provenance(report):
+def print_fig1_provenance(bundle):
     """What every fig1 curve was built from. R1-4.2 goes into a rebuttal, so the
     source runs, the seed count and the held-out quantity have to be checkable
     without re-reading the script."""
+    report, markers = bundle["curves"], bundle["markers"]
     print()
     print("fig1_loss_curves -- provenance per curve")
     print("=" * 78)
@@ -681,7 +741,98 @@ def print_fig1_provenance(report):
             print(f"    {r['regime']} / {r['cell']}")
     if not fallback and not missing:
         print("Held-out source: eval loss was logged for every condition; no substitutions.")
+    print("-" * 78)
+    for m in markers:
+        if m["kind"] == "span":
+            print(f"Marker ({m['regime']} / {m['cell']}): shaded span over the per-seed "
+                  f"held-out minima")
+            print(f"    per-seed argmin steps  {m['mins']}  (from metrics.jsonl eval rows, "
+                  f"step 0 excluded)")
+            print(f"    span drawn             {m['lo']:,} to {m['hi']:,}, n={m['n']} seeds")
+            print(f"    NOT the B8 best-checkpoint step -- B8 samples 9 checkpoints "
+                  f"4,250 apart and cannot resolve this.")
+        else:
+            print(f"Marker ({m['regime']} / {m['cell']}): rule at step {m['step']:,}")
     print("=" * 78)
+
+
+# B11's fractions are shares of the post-filter training pool (680,072 segments,
+# ~747 h), NOT of GigaSpeech M (~1,000 h). Labelling the axis against M would overstate
+# every point by a third -- the error PROGRESS 3.3 exists to stop. The tick labels
+# therefore carry both, and the pool is named in the subtitle.
+GIGA_POOL_SEGMENTS = 680072
+GIGA_POOL_HOURS = 747
+
+
+def fig5_data_scaling(out):
+    """R1-5.3: the GigaSpeech data-scaling curve at an intermediate depth (B11).
+
+    Two things are drawn that a mean-only curve would hide:
+      * every subset is plotted individually, because the manuscript's instability
+        claim is a statement about subset spread, not about the mean;
+      * the 100% anchor's bar is the SEED SD over 5 runs, while the 10%/20% spread is
+        over SUBSETS at one seed. Those are different quantities and the legend says so
+        rather than letting one error bar imply the other.
+    """
+    cells = {}
+    root = Path("outputs/rev/b11/gigaspeech")
+    if not root.exists():
+        return False
+    for celldir in sorted(root.iterdir()):
+        runs = load_cell("b11", "gigaspeech", celldir.name)
+        if not runs:
+            continue
+        m0 = runs[0][0]
+        frac = m0["schedule"]["fraction"]
+        w = [m["results"][IN_DOMAIN["gigaspeech"]]["wer_fixed"] * 100 for m, _ in runs]
+        cells.setdefault(frac, []).extend(w)
+    anchor = load_cell("b1", "gigaspeech", "l4_lora")
+    if not anchor or not cells:
+        return False
+    cells[1.0] = [m["results"][IN_DOMAIN["gigaspeech"]]["wer_fixed"] * 100 for m, _ in anchor]
+
+    fig, ax = plt.subplots(figsize=(5.2, 3.4))
+    fracs = sorted(cells)
+    means = [st.mean(cells[f]) for f in fracs]
+    ax.plot(fracs, means, "-", color=BLUE, lw=1.8, zorder=3, label="L4 LoRA, mean")
+    for f in fracs:
+        v = cells[f]
+        # Individual runs, jittered off the mean marker so overlapping points are visible.
+        ax.plot([f] * len(v), v, "o", ms=4, mfc="white", mec=BLUE, mew=1.1,
+                zorder=4, alpha=0.9)
+        if len(v) > 1:
+            ax.errorbar([f], [st.mean(v)], yerr=[st.stdev(v)], fmt="o", ms=7,
+                        color=BLUE, mfc=BLUE, mec="white", mew=1.2, ecolor=BLUE,
+                        elinewidth=1.4, capsize=3, zorder=5)
+        else:
+            ax.plot([f], v, "o", ms=7, color=BLUE, mfc=BLUE, mec="white",
+                    mew=1.2, zorder=5)
+
+    ax.set_xscale("log")
+    ax.set_xticks(fracs)
+    # n goes in the tick label, not an annotation: at 20%/50% the points sit close
+    # enough that floating labels landed on top of the error bars.
+    def _tick(f):
+        n = len(cells[f])
+        unit = "seed" if f == 1.0 else "subset"
+        return f"{f:.0%}\n{int(f * GIGA_POOL_HOURS)} h\nn={n} {unit}{'s' if n > 1 else ''}"
+    ax.set_xticklabels([_tick(f) for f in fracs])
+    ax.set_xlabel(f"Training data — share of the {GIGA_POOL_SEGMENTS:,}-segment "
+                  f"post-filter pool (~{GIGA_POOL_HOURS} h), not of GigaSpeech M")
+    ax.set_ylabel("In-domain WER %")
+    ax.grid(axis="y")
+    ax.set_axisbelow(True)
+    ax.margins(x=0.12)
+    ax.set_title("GigaSpeech, L4 LoRA: the data-scaling curve at an intermediate depth",
+                 color=INK, loc="left")
+    fig.suptitle("Open circles are individual runs. The bar at 10%/20% is the SUBSET "
+                 "spread at one seed; at 100% it is the SEED SD over 5 runs — "
+                 "different quantities, not one error model.",
+                 fontsize=8, color=INK2, y=1.06)
+    fig.savefig(out / "fig5_data_scaling.png")
+    fig.savefig(out / "fig5_data_scaling.pdf")
+    plt.close(fig)
+    return True
 
 
 def main():
@@ -696,7 +847,8 @@ def main():
     fig2_generalization(rows, out)
     fig3_depth_wer(rows, out)
     fig4_ood_tradeoff(rows, out)
-    print(f"wrote 4 figures (png + pdf) to {out}/ from {len(rows)} cells")
+    n_figs = 4 + (1 if fig5_data_scaling(out) else 0)
+    print(f"wrote {n_figs} figures (png + pdf) to {out}/ from {len(rows)} cells")
     print_fig1_provenance(fig1_report)
 
 
