@@ -289,6 +289,151 @@ B10_CELLS = [
 B10_SEEDS = {"lora": [42, 123, 1234], "full": [42, 123, 1234]}
 
 
+# --- B11: GigaSpeech data-scaling curve ---------------------------------------------
+# R1-5.3's remaining half. B10 made the *depth* axis dense at fraction 1.0; the comment
+# also asks for depth resolution inside the *data-scaling* sweep, and B1 gives GigaSpeech
+# none at all -- every GigaSpeech cell there is fraction 1.0. So the one corpus carrying
+# the contested LoRA-vs-FT crossover is also the one corpus whose layer-wise threshold is
+# never re-checked at reduced data, while VoxPopuli and SPGISpeech both have a 10% cell.
+#
+# Depth is L4, not L5. The 100% endpoint then already exists at n=5
+# (b1/gigaspeech/l4_lora, 9.439 +/- 0.032), so these three runs complete a four-point
+# curve whose anchor is multi-seed. Note that this puts GigaSpeech's scaling curve at a
+# different depth from VoxPopuli's (L5 @ 10%): defensible, because each curve sits next
+# to its own n>=3 same-depth anchor, but it has to be *stated* in W1/W2 rather than left
+# for a reviewer to notice.
+#
+# Single seed (42), justified the way B3's was and by measurement, not assertion:
+# GigaSpeech LoRA seed SD is 0.03-0.04 pp (see PROGRESS 3.4) against data-scaling effects
+# of whole WER points. Quote the measured SD when reporting these.
+#
+# Fractions are shares of the 680,064-segment post-filter training pool (~747 h), NOT of
+# GigaSpeech M (~1,000 h) -- see PROGRESS 3.3. "10%" here is 68,006 segments = ~7.5% of
+# M. Label the figure axis against the effective pool; getting this wrong by a third is
+# exactly the error 3.3 exists to prevent.
+#
+# Subset replication follows the ORIGINAL manuscript exactly: 3 subsets at 0.1,
+# 2 at 0.2, 1 at 0.5. That schedule is not a guess -- it is what outputs/all_exps_final.csv
+# records for the original GigaSpeech data-scaling runs at L0 (exp 002/0023) and L5
+# (exp 007/0071), and identically for VoxPopuli and SPGISpeech. Since L4 is being slotted
+# into a figure alongside those L0 and L5 curves, it must carry the same replication or
+# the three depths are not comparable: the manuscript's 10% error bars are a spread over
+# SUBSETS, and an L4 point with one subset would have no comparable bar to show.
+#
+# Note what the replication is and is not. These are six distinct data subsets at one
+# seed, not seed repeats -- the original campaign was single-seed throughout, and
+# data_order_seed_mode "auto" pins the shuffle to data_seed at fraction < 1 so that
+# subset identity never gets confounded with seed noise (configs.py says this explicitly).
+# So report the 0.1 and 0.2 spreads as subset-to-subset variation. The seed-to-seed SD is
+# a separate, already-measured quantity (0.03-0.04 pp on GigaSpeech LoRA); do not present
+# one as the other.
+#
+# One job per (fraction, subset), never one job with num_subsets: 3. The original ran
+# subsets inside a single job; the rerun cannot, because invariant 1 is one job = one run
+# directory and queue_worker.sh's run_dir_for() globs `_subset_*` and takes the first hit,
+# so a 3-subset job would be marked complete on subset 0 alone and the other two would
+# never be checked. Hence configs.TrainConfig.subset_index, which names the partition and
+# leaves num_subsets at 1.
+#
+# The fractions are NOT a nested series, and that is worth stating before a reviewer
+# asks. PartitionedDataset selects by modulo stride over the seed-42-shuffled stream, so
+# subset i at 10% is every 10th sample from offset i, at 20% every 5th, at 50% every 2nd.
+# 10%/sub0 sits inside both 20%/sub0 and 50%/sub0, but 20%/sub0 is not inside 50%/sub0.
+# Every subset is still an unbiased sample of the same pool, so no point is biased; what
+# non-nesting costs is a little extra between-point sampling noise. This is exactly the
+# mechanism the original campaign's own curves ran under, which is why it is kept.
+#
+# Ordering is longest-job-first (LPT), and that is load balancing rather than priority:
+# workers claim in file order, so the 4.5 h run starts immediately instead of landing
+# last on an otherwise-drained queue. Expect ~14.6 GPU-h, ~8 h wall on two GPUs.
+B11_CELLS = [
+    # (dataset,     depth, fraction, method, subset)
+    ("gigaspeech",  "L4", 0.5, "lora", 0),
+    ("gigaspeech",  "L4", 0.2, "lora", 0),
+    ("gigaspeech",  "L4", 0.2, "lora", 1),
+    ("gigaspeech",  "L4", 0.1, "lora", 0),
+    ("gigaspeech",  "L4", 0.1, "lora", 1),
+    ("gigaspeech",  "L4", 0.1, "lora", 2),
+]
+B11_SEED = 42
+
+
+# --- B12: the data-scaling section, rerun -------------------------------------------
+# The original paper's data-scaling programme, reproduced in the fixed pipeline. Three
+# reasons this is worth ~430 GPU-h rather than a prose limitation:
+#
+#   1. VoxPopuli's 36 fractional runs HAVE NO ARTIFACTS. Not stale -- absent: 0 of 36
+#      result_paths in all_exps_final.csv exist on disk, so 0 have predictions.json and
+#      none can be given a bootstrap CI. That whole section of the paper currently rests
+#      on numbers in the one file PROGRESS forbids building tables from. SPGISpeech is
+#      33 of 39 backed, GigaSpeech 12 of 12.
+#   2. The reported runs are FIXED-BUDGET, and nothing in the rerun campaign reproduces
+#      that. B1's frac10 cells and B11 are all data-limited (1 epoch over the subset),
+#      i.e. ~10x less optimisation than the cells the manuscript reports.
+#   3. L6 LoRA carries the headline instability numbers (8.21 / 8.45) and was dropped on
+#      a false premise -- see lora_targets().
+#
+# GRID. Faithful to the original enumeration, read off all_exps_final.csv and confirmed
+# against the run directories that still exist:
+#     voxpopuli    L0 L2 L3 L4 L5 L6   0.1x3  0.2x2  0.5x1
+#     spgispeech   L0                  0.05x5 0.1x3  0.2x2  0.5x1
+#                  L2 L3 L4 L5         0.1x3  0.2x2  0.5x1
+#                  L6                  0.1x3         0.5x1     <- no 0.2 in the original
+#     gigaspeech   L0 L5               0.1x3  0.2x2  0.5x1
+# 87 cells. Two irregularities are the original's, not ours, and are reproduced rather
+# than tidied: SPGISpeech L0 gets a 0.05 rung nothing else has, and SPGISpeech L6 has no
+# 0.2 rung. Adding SPGI L6 @0.2 would cost 4 runs (~12 GPU-h) and make that corpus
+# rectangular; it is deliberately NOT done here, because "we ran what they ran" is the
+# claim being made. GigaSpeech intermediate depths are likewise absent because the
+# original never ran them -- B11 already covers GigaSpeech L4 on the data-limited side.
+#
+# ONE DEVIATION, and it is an improvement: both regimes get the SAME 87-cell grid, so
+# the regime comparison is exactly paired. The original's two arms were run at different
+# times over different, both-irregular grids (the March data_scaling_old dirs are
+# data-limited, the April data_scaling dirs are fixed-budget), which is why the paper's
+# regime comparison is hard to read. Paired arms cost nothing extra and settle it.
+#
+# SEEDS. One seed (42) per cell, as the original. Replication here is over SUBSETS, not
+# seeds -- that is what the manuscript's error bars are, and B11 measured why it matters:
+# subset-to-subset gaps at 10% reached 0.176 pp against a 10%->100% effect of 0.215-0.391.
+#
+# TWO CELLS ARE DELIBERATELY ABSENT. voxpopuli/spgispeech L5 @10% sub0 data-limited at
+# seed 42 already exist as b1/<corpus>/l5_lora_frac10 s42 -- byte-identical configs, so
+# rerunning them would only add duplicate cells to W4. Use the B1 runs for those points.
+B12_FRACS_STD = {0.1: 3, 0.2: 2, 0.5: 1}
+B12_GRID = {
+    "voxpopuli":  {d: B12_FRACS_STD for d in ("L0", "L2", "L3", "L4", "L5", "L6")},
+    "spgispeech": dict({"L0": {0.05: 5, 0.1: 3, 0.2: 2, 0.5: 1},
+                        "L6": {0.1: 3, 0.5: 1}},
+                       **{d: B12_FRACS_STD for d in ("L2", "L3", "L4", "L5")}),
+    "gigaspeech": {d: B12_FRACS_STD for d in ("L0", "L5")},
+}
+B12_REGIMES = ("fixed_budget", "data_limited")
+B12_SEED = 42
+# (corpus, depth, fraction, subset, regime) already covered by an identical B1 run.
+B12_SKIP = {("voxpopuli", "L5", 0.1, 0, "data_limited"),
+            ("spgispeech", "L5", 0.1, 0, "data_limited")}
+# Corpus order is priority, and it is evidence-driven: VoxPopuli has zero artifact
+# backing, SPGISpeech is missing 6 of 39, GigaSpeech is complete. If the schedule slips,
+# what gets dropped is the corpus that already has its numbers.
+B12_CORPUS_ORDER = ("voxpopuli", "spgispeech", "gigaspeech")
+
+
+def b12_cells():
+    """Flatten the grid. Fixed-budget first within a corpus: it is the arm the
+    manuscript actually reports, so a slipped schedule drops the other one."""
+    out = []
+    for corpus in B12_CORPUS_ORDER:
+        for regime in B12_REGIMES:
+            for depth, fracs in sorted(B12_GRID[corpus].items()):
+                for frac, n in sorted(fracs.items(), reverse=True):
+                    for sub in range(n):
+                        if (corpus, depth, frac, sub, regime) in B12_SKIP:
+                            continue
+                        out.append((corpus, depth, frac, sub, regime))
+    return out
+
+
 def full_ft_targets(depth):
     t = ["proj_out", "model.decoder.layer_norm"]
     if depth == "L6":
@@ -298,23 +443,45 @@ def full_ft_targets(depth):
 
 
 def lora_targets(depth):
-    # LoRA cannot wrap LayerNorm or the embeddings, so those are absent by
-    # construction. This asymmetry with full FT is real and is stated in W1.
+    # LoRA cannot wrap LayerNorm, so norms are absent by construction. This asymmetry
+    # with full FT is real and is stated in W1.
+    #
+    # It CAN wrap an embedding, and at L6 the original campaign did. Corrected
+    # 2026-08-24 -- the 2026-08-06 decision to drop the L6 LoRA cells rested on the
+    # premise that "LoRA has nowhere to put an embedding matrix", which is wrong: PEFT
+    # wraps nn.Embedding as lora_embedding_A/B, and every original L6 LoRA train.log on
+    # all three corpora shows exactly `embed_tokens.lora_embedding_A/B`. The cells were
+    # not vacuous; the generated configs were, because lora_targets() could not express
+    # what the original ran. Verified on openai/whisper-medium: L5 = 482 trainable
+    # tensors / 44.28M params, L6 = 484 / 47.66M, no encoder leak.
+    #
+    # embed_tokens ONLY, not embed_positions -- full_ft_targets() adds both, the original
+    # LoRA runs added just the one, and reproducing the original is the point here.
+    #
+    # Whisper ties proj_out to embed_tokens, so adapting both puts a LoRA on each side of
+    # a tied weight and PEFT emits a tie warning. The original did this too. Do not
+    # "fix" it: it is part of what the manuscript's L6 numbers mean, and W3 already owes
+    # a sentence on the embedding tie-breaking procedure.
     t = ["proj_out"]
+    if depth == "L6":
+        t.append("model.decoder.embed_tokens")
     t += [f"model.decoder.layers.{i}.{m}" for i in LAYER_SETS[depth] for m in LORA_MODS]
     return t
 
 
 def init_blocks(depth):
     layers = LAYER_SETS[depth]
+    # embed_tokens rides in the first block with proj_out because the two are tied
+    # weights; re-initialising them in separate seed-reset stages would be arbitrary.
+    head = ["proj_out"] + (["embed_tokens"] if depth == "L6" else [])
     if not layers:
-        return [["proj_out"]]
-    return [["proj_out", f"layers.{layers[0]}"]] + [[f"layers.{i}"] for i in layers[1:]]
+        return [head]
+    return [head + [f"layers.{layers[0]}"]] + [[f"layers.{i}"] for i in layers[1:]]
 
 
 def render(dataset, depth, fraction, method, out_dir, lr=LR_BASE, batch="b1",
            rank=RANK_BASE, tag_override=None, targets_override=None,
-           init_blocks_override=None, extra_yaml=""):
+           init_blocks_override=None, extra_yaml="", subset=None, regime=None):
     ds = DATASETS[dataset]
     name = ds["name"]
     is_lora = method == "lora"
@@ -325,11 +492,35 @@ def render(dataset, depth, fraction, method, out_dir, lr=LR_BASE, batch="b1",
         tag += f"_{lr_tag(lr)}"
     if rank != RANK_BASE:
         tag += f"_r{rank}"
+    # Only tagged when a caller names a partition explicitly, so every config written
+    # before subset_index existed keeps its path and regenerates byte-identically.
+    if subset is not None:
+        tag += f"_sub{subset}"
+    # Regime is in the path because the two arms are the same (depth, fraction, subset)
+    # and differ only in step budget -- without it they would collide on one output_dir.
+    if regime is not None:
+        tag += {"fixed_budget": "_fb", "data_limited": "_dl"}[regime]
     if tag_override:
         tag = tag_override
-    # fraction 1.0 -> fixed-budget (num_epochs 0, steps from the FULL dataset);
-    # fraction < 1 -> the data-limited cells cited in the regime comparison.
-    num_epochs = 0 if fraction == 1.0 else 1
+    # The two regimes the manuscript compares, made explicit rather than inferred:
+    #   "fixed_budget"  num_epochs 0 -> max_steps from the FULL pool at EVERY fraction,
+    #                   so a 10% run sees the same optimisation budget and simply repeats
+    #                   its subset ~10x. This is what the original's reported (April) runs
+    #                   did -- verified in their train.logs, e.g. spgispeech L5 @10%:
+    #                   "max_steps: 9797 ... Dataset Len: 15675".
+    #   "data_limited"  num_epochs 1 -> max_steps from the SUBSET, one pass. This is what
+    #                   the original's superseded (March) `data_scaling_old` runs did, and
+    #                   what B1's frac10 cells and B11 do.
+    # regime=None keeps the pre-2026-08-24 rule so every config written before this
+    # parameter existed regenerates byte-identically.
+    if regime == "fixed_budget":
+        num_epochs = 0
+    elif regime == "data_limited":
+        num_epochs = 1
+    else:
+        num_epochs = 0 if fraction == 1.0 else 1
+    # Emitted only when named, for the same byte-identity reason as the tag above.
+    subset_yaml = "" if subset is None else f"subset_index: {subset}\n"
 
     lr_note = "" if lr == LR_BASE else f", lr={lr_yaml(lr)}"
     L = [f"""# {batch.upper()} {dataset} {depth} {method.upper()} @ {fraction:g} data{lr_note} -- GENERATED by
@@ -364,7 +555,7 @@ ood_eval_dataset_args:
 
 data_fractions: [{fraction:g}]
 num_subsets: 1
-"""]
+{subset_yaml}"""]
 
     if is_lora:
         # lora_alpha tracks r so the scaling factor alpha/r stays at 2 across ranks.
@@ -539,6 +730,77 @@ def emit_b10(phase, out_dir, as_jobs):
         print(f"\n  {len(cells)} cells -> {total} runs")
 
 
+def emit_b11(phase, out_dir, as_jobs):
+    """GigaSpeech data-scaling curve: one depth, three fractions, six subsets, one seed.
+
+    Goes through render() with fraction < 1.0, which sets num_epochs: 1 -- so the step
+    budget comes from the partition (0.1 -> ~4,250 steps) rather than from the
+    full-pool fixed budget the 1.0 cells use, and data_order_seed_mode "auto" pins the
+    shuffle seed to data_seed so the subset is identical across any future seeds. That
+    is the same mechanism the existing l5_lora_frac10 cells ran under, which is what
+    makes these three points comparable to the 100% anchor.
+    """
+    cells = [c for c in B11_CELLS if phase == "all" or c[0] == phase]
+    if not cells:
+        print(f"# B11 is gigaspeech-only; nothing for phase {phase}")
+        return
+    lines = []
+    for dataset, depth, fraction, method, subset in cells:
+        path, n_targets = render(dataset, depth, fraction, method, out_dir,
+                                 batch="b11", subset=subset)
+        tag = path.stem
+        if not as_jobs:
+            print(f"  {path}  ({n_targets} target modules, fraction {fraction:g}, "
+                  f"subset {subset}, seed {B11_SEED})")
+        lines.append(f"{dataset}_{tag}_s{B11_SEED}\t{path}\t{B11_SEED}\ts{B11_SEED}\t"
+                     f"outputs/rev/b11/{dataset}/{tag}\t-")
+    if as_jobs:
+        print("# B11 GigaSpeech data-scaling curve (R1-5.3) -- generated by scripts/gen_campaign_configs.py")
+        print("# L4 LoRA at 0.1/0.2/0.5; the 1.0 endpoint already exists at n=5 in b1/gigaspeech/l4_lora.")
+        print("# Subsets 3/2/1 at 0.1/0.2/0.5 -- the ORIGINAL manuscript's replication schedule,")
+        print("# read off outputs/all_exps_final.csv (L0 exp 002/0023, L5 exp 007/0071).")
+        print("# One job per (fraction, subset): see configs.TrainConfig.subset_index for why.")
+        print("# Fractions are shares of the 680,064-segment post-filter pool (~747 h), not of GigaSpeech M.")
+        print("# Longest job first: load balancing across two workers, not priority.")
+        print("# job_id\tconfig\tseed\trun_name\toutput_dir\textra")
+        print("\n".join(lines))
+    else:
+        print(f"\n  {len(cells)} cells -> {len(cells)} runs (1 seed each)")
+
+
+def emit_b12(phase, out_dir, as_jobs):
+    """The original data-scaling grid under both regimes, one job per cell."""
+    cells = [c for c in b12_cells() if phase == "all" or c[0] == phase]
+    if not cells:
+        print(f"# nothing for phase {phase}")
+        return
+    lines, seen = [], set()
+    for corpus, depth, frac, sub, regime in cells:
+        key = (corpus, depth, frac, sub, regime)
+        if key in seen:
+            raise AssertionError(f"duplicate B12 cell {key}")
+        seen.add(key)
+        path, n_targets = render(corpus, depth, frac, "lora", out_dir, batch="b12",
+                                 subset=sub, regime=regime)
+        tag = path.stem
+        if not as_jobs:
+            print(f"  {path}  ({n_targets} targets, {regime})")
+        lines.append(f"{corpus}_{tag}_s{B12_SEED}\t{path}\t{B12_SEED}\ts{B12_SEED}\t"
+                     f"outputs/rev/b12/{corpus}/{tag}\t-")
+    if as_jobs:
+        print(f"# B12 {phase} -- the original data-scaling grid, rerun. Generated by scripts/gen_campaign_configs.py")
+        print("# 87 cells x 2 regimes (fixed_budget `_fb`, data_limited `_dl`), minus 2 already in B1.")
+        print("# `_fb` reproduces the manuscript's REPORTED runs: full-pool step budget at every")
+        print("# fraction, so a 10% run repeats its subset ~10x. `_dl` is one pass over the subset.")
+        print("# Single seed 42; replication is over SUBSETS, as in the original.")
+        print("# Corpus order is priority: VoxPopuli has 0 of 36 original artifacts, SPGISpeech")
+        print("# 33 of 39, GigaSpeech 12 of 12. Slippage should drop the corpus that has its numbers.")
+        print("# job_id\tconfig\tseed\trun_name\toutput_dir\textra")
+        print("\n".join(lines))
+    else:
+        print(f"\n  {len(cells)} cells -> {len(cells)} runs (1 seed each)")
+
+
 def emit_simple(cells, batch, phase, out_dir, as_jobs, seed, header):
     """B2/B4: one run per cell, single seed, no tier logic."""
     sel = [c for c in cells if phase == "all" or c[0] == phase]
@@ -566,7 +828,7 @@ def emit_simple(cells, batch, phase, out_dir, as_jobs, seed, header):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", required=True, choices=list(DATASETS) + ["all"])
-    ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5", "b10"])
+    ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5", "b10", "b11", "b12"])
     ap.add_argument("--out", default=None, help="default: configs/rev/<batch>")
     ap.add_argument("--jobs", action="store_true", help="print job-list lines instead")
     args = ap.parse_args()
@@ -578,6 +840,10 @@ def main():
         emit_b3(args.phase, out_dir, args.jobs)
     elif args.batch == "b10":
         emit_b10(args.phase, out_dir, args.jobs)
+    elif args.batch == "b11":
+        emit_b11(args.phase, out_dir, args.jobs)
+    elif args.batch == "b12":
+        emit_b12(args.phase, out_dir, args.jobs)
     elif args.batch == "b5":
         emit_b5(args.phase, out_dir, args.jobs)
     elif args.batch == "b4":

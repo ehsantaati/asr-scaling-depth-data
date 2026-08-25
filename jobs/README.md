@@ -1,8 +1,17 @@
 # Job queue
 
 `campaign.jobs` is the campaign's ground truth: one tab-separated line per
-**(config, seed)** pair, in priority order (B1 > B7 > Z3 > B3 > B6 > B5 > B4 > B10;
+**(config, seed)** pair, in priority order (B1 > B7 > Z3 > B3 > B6 > B5 > B4 > B10 > B11;
 B6/B7 carry no lines of their own because they execute inside the B1/B2 jobs).
+
+Batches after B1 have their own job files rather than lines in `campaign.jobs` --
+`b1_{voxpopuli,gigaspeech,spgispeech}.jobs`, `b3_*.jobs`, `b4_*.jobs`, `b5_voxpopuli.jobs`,
+`b10_intermediate.jobs`, `b11_gigaspeech.jobs`. Launch one at a time; workers exit when
+the list drains.
+
+One line per **(config, seed, subset)** where a cell is replicated over data subsets:
+B11 names its partition through `subset_index` in the config rather than looping inside
+the job, because `run_dir_for()` below resolves a single run directory per job.
 
 ```
 job_id <TAB> config_path <TAB> seed <TAB> run_name <TAB> output_dir <TAB> extra_args
