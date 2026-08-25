@@ -50,13 +50,110 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # cell is the directory name under outputs/rev/<batch>/<corpus>/. Anything not present
 # for a corpus is skipped rather than erroring, so the same table serves all three.
 CONTESTED = [
+    # B10 added L2/L3, which locates the GigaSpeech method crossover instead of
+    # merely asserting it: full FT is ahead at L2/L3 and behind at L4/L5, so the
+    # ordering flips inside the L3->L4 interval. Those two rows are the evidence.
+    ("LoRA vs full FT @ L2", "l2_lora", "l2_full"),
+    ("LoRA vs full FT @ L3", "l3_lora", "l3_full"),
+    ("LoRA: L2 vs L3", "l2_lora", "l3_lora"),
+    ("LoRA: L3 vs L4", "l3_lora", "l4_lora"),
+    ("full FT: L3 vs L4", "l3_full", "l4_full"),
     ("LoRA vs full FT @ L4", "l4_lora", "l4_full"),
     ("LoRA vs full FT @ L5", "l5_lora", "l5_full"),
     ("full FT: L4 vs L5", "l4_full", "l5_full"),
     ("full FT: L5 vs L6", "l5_full", "l6_full"),
     ("LoRA: L4 vs L5", "l4_lora", "l5_lora"),
     ("LoRA: full data vs 10%", "l5_lora", "l5_lora_frac10"),
+    # B11 (GigaSpeech only): the data-scaling curve R1-5.3 asks for, at L4. Two kinds of
+    # row, and they must not be conflated when reported:
+    #   * 100% vs each reduced fraction -- the scaling effect itself;
+    #   * subset vs subset at a fixed fraction -- how much of that effect is just which
+    #     10%/20% of the pool the run happened to see. The manuscript's instability
+    #     numbers are this second quantity, so it needs its own intervals.
+    # Every row pairs on run name, and each B11 cell holds exactly one run (s42), so
+    # these pair against the s42 member of the n=5 100% anchor.
+    ("L4 LoRA: 100% vs 50%", "l4_lora", "l4_lora_frac50_sub0"),
+    ("L4 LoRA: 100% vs 20% sub0", "l4_lora", "l4_lora_frac20_sub0"),
+    ("L4 LoRA: 100% vs 20% sub1", "l4_lora", "l4_lora_frac20_sub1"),
+    ("L4 LoRA: 100% vs 10% sub0", "l4_lora", "l4_lora_frac10_sub0"),
+    ("L4 LoRA: 100% vs 10% sub1", "l4_lora", "l4_lora_frac10_sub1"),
+    ("L4 LoRA: 100% vs 10% sub2", "l4_lora", "l4_lora_frac10_sub2"),
+    ("L4 LoRA @10%: sub0 vs sub1", "l4_lora_frac10_sub0", "l4_lora_frac10_sub1"),
+    ("L4 LoRA @10%: sub0 vs sub2", "l4_lora_frac10_sub0", "l4_lora_frac10_sub2"),
+    ("L4 LoRA @10%: sub1 vs sub2", "l4_lora_frac10_sub1", "l4_lora_frac10_sub2"),
+    ("L4 LoRA @20%: sub0 vs sub1", "l4_lora_frac20_sub0", "l4_lora_frac20_sub1"),
+    ("L4 LoRA: 50% vs 20% sub0", "l4_lora_frac50_sub0", "l4_lora_frac20_sub0"),
+    ("L4 LoRA: 20% sub0 vs 10% sub0", "l4_lora_frac20_sub0", "l4_lora_frac10_sub0"),
 ]
+
+
+# --- pooled comparisons ----------------------------------------------------------
+# CONTESTED pairs one cell against one cell. That is the wrong shape for a data-scaling
+# ladder, where a "fraction" is not a cell but a SET of subset cells, and quoting any
+# single cross-pairing is arbitrary: the six ways of pairing B11's 20% subsets against
+# its 10% subsets span 0.231 pp and disagree on sign (+0.026 to -0.205). Reporting one of
+# them as "20% vs 10%" is how a spans-zero result gets claimed for a step that in fact
+# resolves -- which is exactly what happened, and is why this exists.
+#
+# Each side is averaged over its member cells on the SAME resampled utterances, so the
+# draw still cancels and the statistic stays paired.
+#
+# READ THE INTERVAL CORRECTLY. This is an evaluation-set bootstrap: it answers "would
+# this ordering survive a different test set", NOT "would it survive a different draw of
+# training subsets". The second question is answered by the subset spread, which for
+# B11 at 10% is SD 0.089 pp -- larger than the 20%->10% step itself. Report both.
+POOLED = [
+    # (label, corpus, [cells_a], [cells_b])
+    ("L4 LoRA: 100% vs 50%  (pooled)", "gigaspeech", ["l4_lora"], ["l4_lora_frac50_sub0"]),
+    ("L4 LoRA: 50% vs 20%   (pooled)", "gigaspeech", ["l4_lora_frac50_sub0"],
+     ["l4_lora_frac20_sub0", "l4_lora_frac20_sub1"]),
+    ("L4 LoRA: 20% vs 10%   (pooled)", "gigaspeech",
+     ["l4_lora_frac20_sub0", "l4_lora_frac20_sub1"],
+     ["l4_lora_frac10_sub0", "l4_lora_frac10_sub1", "l4_lora_frac10_sub2"]),
+    ("L4 LoRA: 100% vs 20%  (pooled)", "gigaspeech", ["l4_lora"],
+     ["l4_lora_frac20_sub0", "l4_lora_frac20_sub1"]),
+    ("L4 LoRA: 100% vs 10%  (pooled)", "gigaspeech", ["l4_lora"],
+     ["l4_lora_frac10_sub0", "l4_lora_frac10_sub1", "l4_lora_frac10_sub2"]),
+]
+
+
+def report_pooled(cells, n_boot, rng, out):
+    """Fraction-vs-fraction comparisons, each side averaged over its subset cells."""
+    printed = False
+    for label, corpus, cells_a, cells_b in POOLED:
+        keys_a = [(corpus, c) for c in cells_a]
+        keys_b = [(corpus, c) for c in cells_b]
+        if any(k not in cells for k in keys_a + keys_b):
+            continue
+        names = set.intersection(*[set(cells[k]) for k in keys_a + keys_b])
+        for name in sorted(names):
+            ga = [r for k in keys_a for r in cells[k][name]]
+            gb = [r for k in keys_b for r in cells[k][name]]
+            n_utt = len(ga[0][0])
+            if any(len(r[0]) != n_utt for r in ga + gb):
+                continue
+            if not printed:
+                print(f"\n{'pooled comparison':<46}{'delta pp':>10}{'95% CI':>22}"
+                      f"{'P(sign flips)':>15}")
+                print("-" * 93)
+                print(f"  [{corpus}]")
+                printed = True
+            da, db = bootstrap([ga, gb], n_utt, n_boot, rng)
+            delta = da - db
+            obs = (float(np.mean([wer(e, l) for e, l in ga]))
+                   - float(np.mean([wer(e, l) for e, l in gb])))
+            lo, hi = ci(delta)
+            p = float(np.mean(delta >= 0) if obs < 0 else np.mean(delta <= 0))
+            flag = "" if (lo > 0) == (hi > 0) else "   <- spans zero"
+            print(f"    {label:<42}{obs * 100:>10.3f}"
+                  f"{'[' + format(lo * 100, '.3f') + ', ' + format(hi * 100, '.3f') + ']':>22}"
+                  f"{p:>15.4f}{flag}")
+            out["comparisons"].append({
+                "corpus": corpus, "comparison": label, "eval_set": name,
+                "cell_a": "+".join(cells_a), "cell_b": "+".join(cells_b),
+                "pooled": True, "delta_wer": obs, "ci95": [lo, hi], "p_sign_flip": p,
+                "n_utterances": n_utt, "n_runs_a": len(ga), "n_runs_b": len(gb),
+            })
 
 
 def utt_counts(refs, hyps):
@@ -307,6 +404,7 @@ def main():
         if not args.compare_only:
             report_cells(cells, args.n_boot, rng, out)
         report_comparisons(cells, args.n_boot, rng, out)
+        report_pooled(cells, args.n_boot, rng, out)
 
     dest = Path(args.out)
     dest.parent.mkdir(parents=True, exist_ok=True)

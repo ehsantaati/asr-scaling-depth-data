@@ -44,7 +44,7 @@ IN_DOMAIN = {
     "spgispeech": "spgispeech_2",
 }
 OOD = ("openslr-librispeech-asr-clean", "openslr-librispeech-asr-other")
-BATCHES = ("b1", "b2", "b3", "b4", "b5")
+BATCHES = ("b1", "b2", "b3", "b4", "b5", "b10", "b11")
 
 
 def load_runs(root="outputs/rev"):
@@ -175,9 +175,19 @@ def main():
     ap.add_argument("--root", default="outputs/rev")
     ap.add_argument("--csv", help="also write a flat CSV of every column")
     ap.add_argument("--out", help="write the markdown here instead of stdout")
+    # There are several bootstrap files (b1+b3 only, +b5, all batches). Whichever is
+    # passed must cover the batches in BATCHES or cells silently print "—" for CI,
+    # which reads as "not computed" when it really means "not scanned".
+    ap.add_argument("--cis", default="outputs/rev/z1/bootstrap_all.json",
+                    help="Z1 bootstrap json supplying the 95% CIs")
     args = ap.parse_args()
 
-    rows = summarise(load_runs(args.root), load_cis())
+    cis = load_cis(args.cis)
+    rows = summarise(load_runs(args.root), cis)
+    missing = [f"{r['corpus']}/{r['cell']}" for r in rows if r["ci_lo"] is None]
+    if missing:
+        print(f"WARNING: no bootstrap CI for {len(missing)} cells "
+              f"(not in {args.cis}): {', '.join(missing)}")
     md = markdown(rows)
     if args.out:
         Path(args.out).write_text(md + "\n")
