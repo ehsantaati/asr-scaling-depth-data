@@ -6,12 +6,27 @@ B6/B7 carry no lines of their own because they execute inside the B1/B2 jobs).
 
 Batches after B1 have their own job files rather than lines in `campaign.jobs` --
 `b1_{voxpopuli,gigaspeech,spgispeech}.jobs`, `b3_*.jobs`, `b4_*.jobs`, `b5_voxpopuli.jobs`,
-`b10_intermediate.jobs`, `b11_gigaspeech.jobs`, `b12_*.jobs`, `b13_*.jobs`. Launch one at
+`b10_intermediate.jobs`, `b11_gigaspeech.jobs`, `b12_*.jobs`, `b13*.jobs`. Launch one at
 a time; workers exit when the list drains.
 
 `b12` and `b13` each ship an aggregate file (`b12_all.jobs`, `b13_gridfill.jobs`) plus
-per-corpus files holding the same lines. Launch one or the other, never both: the job_ids
-are shared by construction, so a worker on each would race for the same run directory.
+split files holding the same lines -- `b12` splits by corpus, `b13` by group. Launch the
+aggregate or the splits, never both: the job_ids are shared by construction, so a worker
+on each would race for the same run directory.
+
+`b13` runs in three ordered groups, and the order is by grid repaired per GPU-hour rather
+than by corpus:
+
+| file | what | runs | ~GPU-h |
+|---|---|---|---|
+| `b13a_spgispeech_full.jobs` | SPGISpeech full FT at L0/L2/L3/L4/L6 | 15 | 33 |
+| `b13b_l6_lora.jobs`         | L6 LoRA on all three corpora        |  9 | 43 |
+| `b13c_l0_row.jobs`          | GigaSpeech L0 full FT + L0 top-ups  | 11 | 44 |
+
+Group a first: SPGISpeech is the only corpus whose method comparison exists at a single
+depth, and its runs are the cheapest in the campaign. Group c last: L0 is an anchor, not
+a claim-bearing depth, so it is what gets dropped if the schedule slips -- the grid is
+still complete without the top-ups, just at n=1 on that row.
 
 `b13_gridfill.jobs` ends with four **seed top-ups** that point at configs in `b2`/`b3` and
 write into those cells' existing `output_dir`. That is deliberate -- the cell stays one

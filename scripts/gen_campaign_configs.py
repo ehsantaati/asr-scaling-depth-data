@@ -467,25 +467,43 @@ def b12_cells():
 # the LoRA arm is what makes "the depth axis saturates at L5 for both methods" a
 # measured statement instead of an inference, and it also gives the original
 # manuscript's reported L6 LoRA numbers their first rerun counterpart.
+# Run in three groups, each its own job file, in this order. The order is by how much
+# of the grid each group repairs per GPU-hour, not by corpus:
+#
+#   a  SPGISpeech full FT at L0/L2/L3/L4/L6. The single largest hole -- SPGISpeech is
+#      the only corpus whose method comparison exists at one depth. Cheapest runs in the
+#      campaign (~1.6-2.1 h), so this buys five two-method rows for ~33 GPU-h.
+#   b  L6 LoRA on all three corpora. Gives the manuscript's reported L6 LoRA numbers
+#      their first rerun counterpart, and makes "the depth axis saturates at L5 for both
+#      methods" measured rather than inferred. GigaSpeech dominates the cost here.
+#   c  The L0 row: GigaSpeech L0 full FT (the last absent cell) plus the seed top-ups
+#      below. Last because L0 is an anchor, not a claim-bearing depth -- if the schedule
+#      slips this is what gets dropped, and the grid is still complete at n>=1.
 B13_CELLS = [
-    # (dataset,     depth, methods) -- new cells, configs generated under configs/rev/b13
-    ("voxpopuli",   "L6", ("lora",)),
-    ("gigaspeech",  "L0", ("full",)),
-    ("gigaspeech",  "L6", ("lora",)),
-    ("spgispeech",  "L0", ("full",)),
-    ("spgispeech",  "L2", ("full",)),
-    ("spgispeech",  "L3", ("full",)),
-    ("spgispeech",  "L4", ("full",)),
-    ("spgispeech",  "L6", ("lora", "full")),
+    # (group, dataset,   depth, methods) -- configs generated under configs/rev/b13
+    ("a", "spgispeech",  "L0", ("full",)),
+    ("a", "spgispeech",  "L2", ("full",)),
+    ("a", "spgispeech",  "L3", ("full",)),
+    ("a", "spgispeech",  "L4", ("full",)),
+    ("a", "spgispeech",  "L6", ("full",)),
+    ("b", "voxpopuli",   "L6", ("lora",)),
+    ("b", "gigaspeech",  "L6", ("lora",)),
+    ("b", "spgispeech",  "L6", ("lora",)),
+    ("c", "gigaspeech",  "L0", ("full",)),
 ]
 B13_SEEDS = {"lora": [42, 123, 1234], "full": [42, 123, 1234]}
+B13_GROUPS = {
+    "a": "SPGISpeech full FT across depths (L0/L2/L3/L4/L6)",
+    "b": "L6 LoRA on all three corpora",
+    "c": "GigaSpeech L0 full FT, and the n=1 L0 seed top-ups",
+}
 
 # Four cells exist already but at n=1, which would leave the completed grid with an
 # entire row carrying no SD while every other row has one. These are seed top-ups on the
 # EXISTING cell, not new cells: they reuse the b2/b3 config and write into the same
 # output_dir, so the cell stays one cell rather than splitting across batches.
 # (dataset, existing config path, existing output_dir, method, seeds to add)
-B13_TOPUP = [
+B13_TOPUP = [   # all group "c"
     ("voxpopuli",  "configs/rev/b2/voxpopuli/l0_lora.yaml",
      "outputs/rev/b2/voxpopuli/l0_lora",  "lora", [123, 1234]),
     ("voxpopuli",  "configs/rev/b3/voxpopuli/l0_full.yaml",
@@ -864,25 +882,27 @@ def emit_b12(phase, out_dir, as_jobs):
         print(f"\n  {len(cells)} cells -> {len(cells)} runs (1 seed each)")
 
 
-def emit_b13(phase, out_dir, as_jobs):
-    """Fill the depth grid to both methods everywhere, plus the n=1 L0 top-ups.
+def emit_b13(phase, out_dir, as_jobs, group="all"):
+    """Fill the depth grid to both methods everywhere, in three ordered groups.
 
     Two kinds of line. New cells go through render() as usual and land under
     configs/rev/b13. Top-ups point at the config and output_dir the cell ALREADY has in
     b2/b3 -- rendering a duplicate under b13 would split one cell across two batches and
     every downstream scan (w4_tables, z1_bootstrap, z3) groups by (batch, corpus, cell).
     """
-    cells = [c for c in B13_CELLS if phase == "all" or c[0] == phase]
-    topups = [t for t in B13_TOPUP if phase == "all" or t[0] == phase]
+    cells = [c for c in B13_CELLS
+             if (phase == "all" or c[1] == phase) and (group == "all" or c[0] == group)]
+    topups = [t for t in B13_TOPUP
+              if (phase == "all" or t[0] == phase) and group in ("all", "c")]
     lines, total = [], 0
-    for dataset, depth, methods in cells:
+    for _grp, dataset, depth, methods in cells:
         for method in methods:
             path, n_targets = render(dataset, depth, 1.0, method, out_dir, batch="b13")
             seeds = B13_SEEDS[method]
             total += len(seeds)
             tag = path.stem
             if not as_jobs:
-                print(f"  {path}  ({n_targets} target modules, {len(seeds)} seeds)")
+                print(f"  [{_grp}] {path}  ({n_targets} target modules, {len(seeds)} seeds)")
             for sd in seeds:
                 lines.append(f"{dataset}_{tag}_s{sd}\t{path}\t{sd}\ts{sd}\t"
                              f"outputs/rev/b13/{dataset}/{tag}\t-")
@@ -890,18 +910,23 @@ def emit_b13(phase, out_dir, as_jobs):
         tag = Path(cfg).stem
         total += len(seeds)
         if not as_jobs:
-            print(f"  {cfg}  (top-up, {len(seeds)} seeds -> {outdir})")
+            print(f"  [c] {cfg}  (top-up, {len(seeds)} seeds -> {outdir})")
         for sd in seeds:
             lines.append(f"{dataset}_{tag}_s{sd}\t{cfg}\t{sd}\ts{sd}\t{outdir}\t-")
     if as_jobs:
-        print("# B13 depth-grid completion -- generated by scripts/gen_campaign_configs.py")
-        print("# Fills every {L0,L2,L3,L4,L5,L6} x {LoRA, full FT} cell left absent by the")
-        print("# tiered allocation in B1/B10. Three seeds for both methods, as in B10.")
-        print("# L6 is a two-method ROW but not a symmetric cross-method comparison:")
-        print("# full FT adds embed_positions and the LayerNorms, LoRA adds neither.")
-        print("# Report L6 within method; L5 stays the cross-method headline.")
-        print("# The last lines are seed top-ups on EXISTING b2/b3 cells -- they write into")
-        print("# the existing output_dir on purpose. Drop them if n=1 at L0 is acceptable.")
+        label = "all groups" if group == "all" else f"group {group} -- {B13_GROUPS[group]}"
+        print(f"# B13 depth-grid completion, {label}")
+        print("# Generated by scripts/gen_campaign_configs.py. Three seeds for both")
+        print("# methods, as in B10. Run groups in order a -> b -> c.")
+        if group in ("all", "b"):
+            print("# L6 becomes a two-method ROW but is NOT a symmetric cross-method")
+            print("# comparison: full FT takes embed_positions and every LayerNorm, LoRA")
+            print("# takes neither. Report L6 within method, each arm against its own L5;")
+            print("# L5 stays the cross-method headline.")
+        if group in ("all", "c"):
+            print("# The l0_lora/l0_full lines are seed top-ups on EXISTING b2/b3 cells and")
+            print("# write into the existing output_dir on purpose. Drop them if n=1 at L0")
+            print("# is acceptable -- the grid is complete without them.")
         print("# job_id\tconfig\tseed\trun_name\toutput_dir\textra")
         print("\n".join(lines))
     else:
@@ -938,6 +963,8 @@ def main():
     ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5", "b10", "b11", "b12", "b13"])
     ap.add_argument("--out", default=None, help="default: configs/rev/<batch>")
     ap.add_argument("--jobs", action="store_true", help="print job-list lines instead")
+    ap.add_argument("--group", default="all", choices=["all", "a", "b", "c"],
+                    help="B13 only: which ordered group to emit")
     args = ap.parse_args()
 
     out_dir = args.out or f"configs/rev/{args.batch}"
@@ -952,7 +979,7 @@ def main():
     elif args.batch == "b12":
         emit_b12(args.phase, out_dir, args.jobs)
     elif args.batch == "b13":
-        emit_b13(args.phase, out_dir, args.jobs)
+        emit_b13(args.phase, out_dir, args.jobs, args.group)
     elif args.batch == "b5":
         emit_b5(args.phase, out_dir, args.jobs)
     elif args.batch == "b4":
