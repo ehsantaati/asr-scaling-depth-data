@@ -285,11 +285,22 @@ def main():
         
         logging.info(f"--- Starting experiments for fraction: {fraction} (Total Partitions: {total_partitions}) ---")
         
-        # Limit number of subsets to total available partitions if needed
-        num_subsets_to_run = min(config.num_subsets, total_partitions)
-        
-        for i in range(num_subsets_to_run):
-            logging.info(f"Subset {i+1}/{num_subsets_to_run} (Partition Index: {i})")
+        # Limit number of subsets to total available partitions if needed.
+        # subset_index offsets the window so one job can run a single named partition
+        # (see configs.TrainConfig.subset_index); at its default of 0 this is the
+        # original range(num_subsets).
+        first_subset = config.subset_index
+        if not 0 <= first_subset < total_partitions:
+            raise ValueError(
+                f"subset_index {first_subset} out of range for fraction {fraction} "
+                f"({total_partitions} partitions available)"
+            )
+        num_subsets_to_run = min(config.num_subsets, total_partitions - first_subset)
+
+        for i in range(first_subset, first_subset + num_subsets_to_run):
+            logging.info(
+                f"Subset {i - first_subset + 1}/{num_subsets_to_run} (Partition Index: {i})"
+            )
 
             # Re-seed per run. set_seed was previously called once before the loops, so
             # on the 2nd+ (fraction, subset) iteration the RNG state depended on loop

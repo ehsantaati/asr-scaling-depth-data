@@ -114,6 +114,13 @@ class TrainConfig(BaseConfig):
     data_fractions: List[float] = simple_parsing.list_field(1.0)
     # Number of random subsets to train for each fraction
     num_subsets: int = 1
+    # Index of the FIRST partition to run, so a single (fraction, subset) cell can be
+    # its own job. The original campaign ran subsets 0..num_subsets-1 inside one job,
+    # which the rerun cannot do: invariant 1 is one job = one run directory, and
+    # queue_worker.sh's run_dir_for() globs `_subset_*` and takes the first hit, so a
+    # multi-subset job would be judged complete on subset 0 alone. Defaults to 0, which
+    # reproduces the previous behaviour exactly for every existing config.
+    subset_index: int = 0
 
     # Training parameters
     num_epochs: float = 3.0
