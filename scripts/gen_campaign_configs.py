@@ -80,27 +80,36 @@ def lr_yaml(lr):
 SEEDS = {1: {"lora": [42, 123, 1234, 12345, 123456], "full": [42, 123, 1234]},
          2: {"lora": [42, 123, 1234],                "full": [42, 123]}}
 
-# Methods are per-cell, not universal:
+# Methods are per-cell in B1, not universal:
 #   * The data-scaling analysis (manuscript sec 4.3, Figures 4-8) is LoRA-only by
 #     design -- the instability numbers being defended (8.21, 8.45 at 10%) are LoRA
 #     numbers. Adding FT seeds there would be new experiments answering a question
 #     no reviewer asked.
-#   * SPGISpeech's FT-vs-LoRA claim lives at L5 (tier 1). L4/L6 on SPGISpeech carry
-#     no contested crossover, so they are LoRA-only too.
+#   * SPGISpeech's FT-vs-LoRA claim lives at L5 (tier 1), so B1 left L4 there
+#     LoRA-only. SUPERSEDED by B13, which fills the depth grid to both methods on
+#     every corpus; the tables below are kept as the record of what B1 itself ran.
 #
-# There is no L6 LoRA cell, and this is not an oversight (2026-08-06). L6 is defined
-# as L5 plus embed_tokens and embed_positions; full_ft_targets() adds them, but
-# lora_targets() cannot -- LORA_MODS wraps attention and FFN projections only, and
-# LoRA has nowhere to put an embedding matrix. L5 and L6 therefore resolve to the
-# same 241 modules, and l6_lora.yaml was byte-identical to l5_lora.yaml apart from
-# output_dir. The cells were enumerated separately until the queue was already
-# running, which would have spent ~14 runs recomputing L5 under the name L6.
-# The honest form of the result is that LoRA saturates at L5 because the parameters
-# that distinguish L6 are not LoRA-adaptable; that belongs in W1 next to the existing
-# note on LayerNorm. Do not re-add an L6 LoRA cell without first giving L6 LoRA a
-# distinct meaning (an embedding adapter, or embeddings trainable alongside LoRA) --
-# and note that such a variant is a new experiment, not comparable to the original
-# paper's numbers.
+# SUPERSEDED 2026-08-25. The paragraph that stood here said there is no L6 LoRA cell
+# because "LoRA has nowhere to put an embedding matrix", and that L5 and L6 resolve to
+# the same 241 modules. That premise is wrong and the conclusion drawn from it -- that
+# LoRA saturates at L5 because the distinguishing parameters are not LoRA-adaptable --
+# must not be written into the paper. PEFT wraps nn.Embedding as lora_embedding_A/B,
+# and every original L6 LoRA train.log on all three corpora shows exactly
+# embed_tokens.lora_embedding_A/B. The 2026-08-06 cells were not vacuous; the generated
+# configs were, because lora_targets() could not express them. Fixed 2026-08-24 and
+# verified on openai/whisper-medium: L5 = 482 trainable tensors / 44.28M params,
+# L6 = 484 / 47.66M, no encoder leak. B13 runs the cells.
+#
+# What IS true, and belongs in W1 next to the LayerNorm note: L6 is not a symmetric
+# cross-method comparison. full_ft_targets() takes embed_tokens AND embed_positions;
+# lora_targets() takes embed_tokens only (matching the original). But that asymmetry
+# is not an L6 property -- full FT carries model.decoder.layer_norm plus every block's
+# internal norms and biases at EVERY depth, and LoRA carries none of them at any depth.
+# The increment L6 adds to the mismatch is embed_positions alone: 448 x 1024 = 458,752
+# params, 0.86% of the L5->L6 step and 0.06% of the base model. So report L6 WITHIN
+# method, each arm against its own L5, and keep L5 as the cross-method headline --
+# because L5 is the deepest depth where both methods span the same decoder-block set
+# and is where the tier-1 seed budget went, NOT because L6 is uniquely confounded.
 CELLS = [
     # (dataset,     depth, fraction, tier, methods)
     ("gigaspeech",  "L4", 1.0, 1, ("lora", "full")),
@@ -432,6 +441,60 @@ def b12_cells():
                             continue
                         out.append((corpus, depth, frac, sub, regime))
     return out
+
+
+# --- B13: complete the depth grid to both methods on every corpus -------------------
+# B1 and B10 allocated method coverage by which claim was contested, which left the
+# depth grid ragged: SPGISpeech had full FT at L5 only, GigaSpeech and SPGISpeech had no
+# L0 full FT, and no corpus had L6 LoRA (dropped 2026-08-06 on a premise now known to be
+# wrong -- see the note above CELLS). B13 fills every hole so the table reads
+# {L0,L2,L3,L4,L5,L6} x {LoRA, full FT} x 3 corpora with no absent cells.
+#
+# This is a deliberate departure from the tiered allocation the paper describes, and the
+# seed-allocation paragraph must be rewritten to say so: the grid was completed after the
+# fact, rather than scoped to contested claims. Do not leave the old description standing
+# beside these cells.
+#
+# Three seeds for both methods, as in B10. A two-run SD is barely an estimate and the
+# paper already concedes that for VoxPopuli's B1 full-FT cells; widening that weak spot
+# across nine new cells to save nine runs would be a poor trade.
+#
+# On L6: these cells make L6 a two-method row, but the cross-method comparison there is
+# NOT symmetric (full FT adds embed_positions and every LayerNorm, LoRA adds neither).
+# Report L6 within method -- each arm against its own L5 -- and keep L5 as the
+# cross-method headline. The full-FT L5->L6 step is already measured as a null on
+# VoxPopuli (+0.001 pp [-0.031, +0.032]) and -0.069 [-0.109, -0.032] on GigaSpeech;
+# the LoRA arm is what makes "the depth axis saturates at L5 for both methods" a
+# measured statement instead of an inference, and it also gives the original
+# manuscript's reported L6 LoRA numbers their first rerun counterpart.
+B13_CELLS = [
+    # (dataset,     depth, methods) -- new cells, configs generated under configs/rev/b13
+    ("voxpopuli",   "L6", ("lora",)),
+    ("gigaspeech",  "L0", ("full",)),
+    ("gigaspeech",  "L6", ("lora",)),
+    ("spgispeech",  "L0", ("full",)),
+    ("spgispeech",  "L2", ("full",)),
+    ("spgispeech",  "L3", ("full",)),
+    ("spgispeech",  "L4", ("full",)),
+    ("spgispeech",  "L6", ("lora", "full")),
+]
+B13_SEEDS = {"lora": [42, 123, 1234], "full": [42, 123, 1234]}
+
+# Four cells exist already but at n=1, which would leave the completed grid with an
+# entire row carrying no SD while every other row has one. These are seed top-ups on the
+# EXISTING cell, not new cells: they reuse the b2/b3 config and write into the same
+# output_dir, so the cell stays one cell rather than splitting across batches.
+# (dataset, existing config path, existing output_dir, method, seeds to add)
+B13_TOPUP = [
+    ("voxpopuli",  "configs/rev/b2/voxpopuli/l0_lora.yaml",
+     "outputs/rev/b2/voxpopuli/l0_lora",  "lora", [123, 1234]),
+    ("voxpopuli",  "configs/rev/b3/voxpopuli/l0_full.yaml",
+     "outputs/rev/b3/voxpopuli/l0_full",  "full", [123, 1234]),
+    ("gigaspeech", "configs/rev/b2/gigaspeech/l0_lora.yaml",
+     "outputs/rev/b2/gigaspeech/l0_lora", "lora", [123, 1234]),
+    ("spgispeech", "configs/rev/b2/spgispeech/l0_lora.yaml",
+     "outputs/rev/b2/spgispeech/l0_lora", "lora", [123, 1234]),
+]
 
 
 def full_ft_targets(depth):
@@ -801,6 +864,50 @@ def emit_b12(phase, out_dir, as_jobs):
         print(f"\n  {len(cells)} cells -> {len(cells)} runs (1 seed each)")
 
 
+def emit_b13(phase, out_dir, as_jobs):
+    """Fill the depth grid to both methods everywhere, plus the n=1 L0 top-ups.
+
+    Two kinds of line. New cells go through render() as usual and land under
+    configs/rev/b13. Top-ups point at the config and output_dir the cell ALREADY has in
+    b2/b3 -- rendering a duplicate under b13 would split one cell across two batches and
+    every downstream scan (w4_tables, z1_bootstrap, z3) groups by (batch, corpus, cell).
+    """
+    cells = [c for c in B13_CELLS if phase == "all" or c[0] == phase]
+    topups = [t for t in B13_TOPUP if phase == "all" or t[0] == phase]
+    lines, total = [], 0
+    for dataset, depth, methods in cells:
+        for method in methods:
+            path, n_targets = render(dataset, depth, 1.0, method, out_dir, batch="b13")
+            seeds = B13_SEEDS[method]
+            total += len(seeds)
+            tag = path.stem
+            if not as_jobs:
+                print(f"  {path}  ({n_targets} target modules, {len(seeds)} seeds)")
+            for sd in seeds:
+                lines.append(f"{dataset}_{tag}_s{sd}\t{path}\t{sd}\ts{sd}\t"
+                             f"outputs/rev/b13/{dataset}/{tag}\t-")
+    for dataset, cfg, outdir, method, seeds in topups:
+        tag = Path(cfg).stem
+        total += len(seeds)
+        if not as_jobs:
+            print(f"  {cfg}  (top-up, {len(seeds)} seeds -> {outdir})")
+        for sd in seeds:
+            lines.append(f"{dataset}_{tag}_s{sd}\t{cfg}\t{sd}\ts{sd}\t{outdir}\t-")
+    if as_jobs:
+        print("# B13 depth-grid completion -- generated by scripts/gen_campaign_configs.py")
+        print("# Fills every {L0,L2,L3,L4,L5,L6} x {LoRA, full FT} cell left absent by the")
+        print("# tiered allocation in B1/B10. Three seeds for both methods, as in B10.")
+        print("# L6 is a two-method ROW but not a symmetric cross-method comparison:")
+        print("# full FT adds embed_positions and the LayerNorms, LoRA adds neither.")
+        print("# Report L6 within method; L5 stays the cross-method headline.")
+        print("# The last lines are seed top-ups on EXISTING b2/b3 cells -- they write into")
+        print("# the existing output_dir on purpose. Drop them if n=1 at L0 is acceptable.")
+        print("# job_id\tconfig\tseed\trun_name\toutput_dir\textra")
+        print("\n".join(lines))
+    else:
+        print(f"\n  {len(cells)} new cells + {len(topups)} top-ups -> {total} runs")
+
+
 def emit_simple(cells, batch, phase, out_dir, as_jobs, seed, header):
     """B2/B4: one run per cell, single seed, no tier logic."""
     sel = [c for c in cells if phase == "all" or c[0] == phase]
@@ -828,7 +935,7 @@ def emit_simple(cells, batch, phase, out_dir, as_jobs, seed, header):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", required=True, choices=list(DATASETS) + ["all"])
-    ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5", "b10", "b11", "b12"])
+    ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5", "b10", "b11", "b12", "b13"])
     ap.add_argument("--out", default=None, help="default: configs/rev/<batch>")
     ap.add_argument("--jobs", action="store_true", help="print job-list lines instead")
     args = ap.parse_args()
@@ -844,6 +951,8 @@ def main():
         emit_b11(args.phase, out_dir, args.jobs)
     elif args.batch == "b12":
         emit_b12(args.phase, out_dir, args.jobs)
+    elif args.batch == "b13":
+        emit_b13(args.phase, out_dir, args.jobs)
     elif args.batch == "b5":
         emit_b5(args.phase, out_dir, args.jobs)
     elif args.batch == "b4":
