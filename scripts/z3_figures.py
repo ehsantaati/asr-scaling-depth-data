@@ -504,7 +504,7 @@ def fig1_loss_curves(out):
 def cell_summary():
     """Every cell: final train loss, in-domain WER, OOD WER, method, depth."""
     rows = []
-    for batch in ("b1", "b2", "b3", "b4", "b5", "b10", "b11"):
+    for batch in ("b1", "b2", "b3", "b4", "b5", "b10", "b11", "b13"):
         root = Path("outputs/rev", batch)
         if not root.exists():
             continue

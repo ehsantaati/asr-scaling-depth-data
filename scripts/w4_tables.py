@@ -44,7 +44,7 @@ IN_DOMAIN = {
     "spgispeech": "spgispeech_2",
 }
 OOD = ("openslr-librispeech-asr-clean", "openslr-librispeech-asr-other")
-BATCHES = ("b1", "b2", "b3", "b4", "b5", "b10", "b11")
+BATCHES = ("b1", "b2", "b3", "b4", "b5", "b10", "b11", "b13")
 
 
 def load_runs(root="outputs/rev"):

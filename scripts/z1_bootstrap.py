@@ -53,6 +53,12 @@ CONTESTED = [
     # B10 added L2/L3, which locates the GigaSpeech method crossover instead of
     # merely asserting it: full FT is ahead at L2/L3 and behind at L4/L5, so the
     # ordering flips inside the L3->L4 interval. Those two rows are the evidence.
+    # B13 completed the full-FT depth curve on SPGISpeech, so the shallow method
+    # comparison and the full-FT L2->L3 step exist on more than one corpus and are
+    # worth their own intervals. L0 fires on VoxPopuli and SPGISpeech; GigaSpeech
+    # gains it when b13 group c lands.
+    ("LoRA vs full FT @ L0", "l0_lora", "l0_full"),
+    ("full FT: L2 vs L3", "l2_full", "l3_full"),
     ("LoRA vs full FT @ L2", "l2_lora", "l2_full"),
     ("LoRA vs full FT @ L3", "l3_lora", "l3_full"),
     ("LoRA: L2 vs L3", "l2_lora", "l3_lora"),
