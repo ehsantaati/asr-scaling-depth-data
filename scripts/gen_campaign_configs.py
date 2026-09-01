@@ -496,6 +496,7 @@ B13_GROUPS = {
     "a": "SPGISpeech full FT across depths (L0/L2/L3/L4/L6)",
     "b": "L6 LoRA on all three corpora",
     "c": "GigaSpeech L0 full FT, and the n=1 L0 seed top-ups",
+    "d": "VoxPopuli seed top-ups: full FT L4/L5/L6 to n=3, L6 LoRA to n=5",
 }
 
 # Four cells exist already but at n=1, which would leave the completed grid with an
@@ -503,7 +504,23 @@ B13_GROUPS = {
 # EXISTING cell, not new cells: they reuse the b2/b3 config and write into the same
 # output_dir, so the cell stays one cell rather than splitting across batches.
 # (dataset, existing config path, existing output_dir, method, seeds to add)
-B13_TOPUP = [   # all group "c"
+# Group d: the last two weak spots, both on VoxPopuli, both n<3-in-practice.
+#
+#   1. l4/l5/l6 full FT are n=2 -- the only survivors of B1's tier-2 schedule (LoRA 3 /
+#      full FT 2). B10 and B13 both used 3/3, so these three cells are the last places
+#      the abandoned tiering still shows, and l5_full carries the VoxPopuli method
+#      comparison while l6_full carries half the L5->L6 saturation null. Seed 1234,
+#      matching the third seed used everywhere else.
+#
+#   2. l6_lora is nominally n=3 but one run (s1234) has a decode repetition-loop
+#      pathology -- 6 of 1830 utterances, 1164 excess words, ~92% of the cell's spread,
+#      with entirely normal training. That leaves 2 usable runs. Seeds 12345 and 123456
+#      take the cell to 5 total, which is what distinguishes a chance decode failure
+#      (1 of 5) from an interaction between the embedding adapter and the tied proj_out
+#      (recurs). Do not claim either until these run: n=1 cannot separate them.
+#
+# All five reuse an EXISTING config and output_dir, as group c did.
+B13_TOPUP = [   # groups "c" and "d"
     ("voxpopuli",  "configs/rev/b2/voxpopuli/l0_lora.yaml",
      "outputs/rev/b2/voxpopuli/l0_lora",  "lora", [123, 1234]),
     ("voxpopuli",  "configs/rev/b3/voxpopuli/l0_full.yaml",
@@ -512,6 +529,16 @@ B13_TOPUP = [   # all group "c"
      "outputs/rev/b2/gigaspeech/l0_lora", "lora", [123, 1234]),
     ("spgispeech", "configs/rev/b2/spgispeech/l0_lora.yaml",
      "outputs/rev/b2/spgispeech/l0_lora", "lora", [123, 1234]),
+]
+B13D_TOPUP = [
+    ("voxpopuli", "configs/rev/b1/voxpopuli/l4_full.yaml",
+     "outputs/rev/b1/voxpopuli/l4_full", "full", [1234]),
+    ("voxpopuli", "configs/rev/b1/voxpopuli/l5_full.yaml",
+     "outputs/rev/b1/voxpopuli/l5_full", "full", [1234]),
+    ("voxpopuli", "configs/rev/b1/voxpopuli/l6_full.yaml",
+     "outputs/rev/b1/voxpopuli/l6_full", "full", [1234]),
+    ("voxpopuli", "configs/rev/b13/voxpopuli/l6_lora.yaml",
+     "outputs/rev/b13/voxpopuli/l6_lora", "lora", [12345, 123456]),
 ]
 
 
@@ -894,6 +921,8 @@ def emit_b13(phase, out_dir, as_jobs, group="all"):
              if (phase == "all" or c[1] == phase) and (group == "all" or c[0] == group)]
     topups = [t for t in B13_TOPUP
               if (phase == "all" or t[0] == phase) and group in ("all", "c")]
+    topups += [t for t in B13D_TOPUP
+               if (phase == "all" or t[0] == phase) and group in ("all", "d")]
     lines, total = [], 0
     for _grp, dataset, depth, methods in cells:
         for method in methods:
@@ -963,7 +992,7 @@ def main():
     ap.add_argument("--batch", default="b1", choices=["b1", "b2", "b3", "b4", "b5", "b10", "b11", "b12", "b13"])
     ap.add_argument("--out", default=None, help="default: configs/rev/<batch>")
     ap.add_argument("--jobs", action="store_true", help="print job-list lines instead")
-    ap.add_argument("--group", default="all", choices=["all", "a", "b", "c"],
+    ap.add_argument("--group", default="all", choices=["all", "a", "b", "c", "d"],
                     help="B13 only: which ordered group to emit")
     args = ap.parse_args()
 
