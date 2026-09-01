@@ -68,6 +68,12 @@ CONTESTED = [
     ("LoRA vs full FT @ L5", "l5_lora", "l5_full"),
     ("full FT: L4 vs L5", "l4_full", "l5_full"),
     ("full FT: L5 vs L6", "l5_full", "l6_full"),
+    # B13b restored the L6 LoRA cells (the 2026-08-06 drop rested on a false premise).
+    # This is the LoRA-side counterpart of the full-FT L5->L6 null, and it is the row
+    # that turns "the depth axis saturates at L5 for both methods" from an inference
+    # into a measurement. NOTE voxpopuli l6_lora contains one pathological run
+    # (s1234, decode repetition loops) -- read that corpus's interval accordingly.
+    ("LoRA: L5 vs L6", "l5_lora", "l6_lora"),
     ("LoRA: L4 vs L5", "l4_lora", "l5_lora"),
     ("LoRA: full data vs 10%", "l5_lora", "l5_lora_frac10"),
     # B11 (GigaSpeech only): the data-scaling curve R1-5.3 asks for, at L4. Two kinds of

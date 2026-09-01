@@ -242,11 +242,24 @@ audit_run() {
       # That reproduces the observed sizes almost exactly (L4 95.4 MB, L5 177.2 MB), so
       # 2x headroom is genuine headroom. The cap stays far below a merged
       # whisper-medium (1.5 GiB fp16), which is the failure this check exists to catch.
-      local nmod rank cap
+      #   3. L6 needed a third term. When an embedding is among the targets, PEFT sets
+      #      save_embedding_layers="auto" and persists the FULL base embedding matrix
+      #      alongside the adapter -- and because Whisper ties proj_out to embed_tokens,
+      #      it saves both base layers, 2 x 51865 x 1024 x 4 B = 425 MiB of frozen
+      #      pretrained weights. Verified on b13/voxpopuli/l6_lora/s42: both saved
+      #      base_layer tensors are bit-identical to openai/whisper-medium's decoder
+      #      embedding, so this is redundancy, not a trained full model -- invariant 4
+      #      is intact and the "no full model weights persisted" check above still
+      #      guards it. Budget the term rather than inflating the multiplier, so the
+      #      check stays tight enough to catch a merged whisper-medium (1.5 GiB fp16).
+      local nmod rank cap n_embed
       nmod=$(jq -r '.adaptation.target_modules.n_lora_layers // 0' "$M")
       rank=$(jq -r '.adaptation.lora.r // 0' "$M")
+      n_embed=$(jq -r '[.adaptation.target_modules.lora_layers // [] | .[] | select(test("embed"))] | length' "$M" 2>/dev/null || echo 0)
       if (( nmod > 0 && rank > 0 )); then
         cap=$(( 2 * rank * (211000 + (nmod - 1) * 10656) ))
+        # one saved base layer per adapted embedding, plus its tied partner
+        (( n_embed > 0 )) && cap=$(( cap + n_embed * 2 * 51865 * 1024 * 4 ))
       else
         cap=$(( 400 * 1048576 ))   # manifest predates those fields: flat fallback
       fi

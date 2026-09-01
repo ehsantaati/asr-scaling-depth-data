@@ -73,8 +73,16 @@ def trainable_params(run):
     """Trainable parameters, LoRA and full FT alike.
 
     cost.json carries n_params only for full FT (the saved state dict is the trainable
-    set). LoRA saves an adapter, so count its tensors from the adapter file instead --
-    that IS the trainable set for a LoRA run.
+    set). LoRA saves an adapter, so count its tensors from the adapter file instead.
+
+    SKIP `base_layer` tensors. Every adapter tensor was the trainable set until L6:
+    when an embedding is targeted, PEFT sets save_embedding_layers="auto" and writes
+    the FULL base embedding into the adapter, and Whisper's proj_out/embed_tokens tie
+    means both go in -- 2 x 51865 x 1024 = 106.2M FROZEN parameters. Counting them made
+    L6 LoRA report 153.9M trainable against its true 47.7M, a 3x overstatement in the
+    column R1-1.3 relies on to separate adaptation depth from trainable budget. The
+    saved base layers are bit-identical to pretrained whisper-medium (verified), so
+    they are redundancy in the artifact, never part of what was optimised.
     """
     w = run["c"].get("weights", {})
     if w.get("n_params"):
@@ -85,6 +93,8 @@ def trainable_params(run):
         n = 0
         with safe_open(str(adapter), framework="pt") as f:
             for k in f.keys():
+                if "base_layer" in k:
+                    continue
                 shape = f.get_slice(k).get_shape()
                 p = 1
                 for d in shape:
