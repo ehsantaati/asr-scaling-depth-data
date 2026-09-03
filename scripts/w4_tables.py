@@ -151,6 +151,31 @@ def fmt(v, spec=".3f", dash="—"):
     return dash if v is None else format(v, spec)
 
 
+CAVEAT_L6_LORA = """
+**‡ `voxpopuli/l6_lora` is unstable: 2 of 5 runs degrade, by two different mechanisms.**
+Seeds: 6.250, 6.341, 6.427, **7.433**, **9.332**.
+
+* `s1234` (9.332) trained normally -- final eval loss 0.2067, train loss 0.2471 -- and
+  failed at *decode*: 6 of 1,830 utterances emit repetition loops totalling 1,164 excess
+  words, 2.71 pp of pure insertion.
+* `s12345` (7.433) failed in *training*: eval loss spikes 0.272 -> 0.301 -> 0.689 ->
+  **1.243** around step 1,500 and only partly recovers (final 0.2325, train loss 0.3937
+  against ~0.238 for healthy runs). It has **zero** repetition loops, and its OOD is the
+  worst of any LoRA cell in the campaign (LS-clean 7.418).
+
+The three clean seeds give **6.339 +- 0.088**, i.e. +0.019 over L5 LoRA -- in line with
+GigaSpeech (+0.030) and SPGISpeech (+0.040). Paired against L5 on the clean seeds:
+**-0.019 [-0.089, +0.050], spans zero.** The all-5 interval (-0.837 [-1.124, -0.585])
+is an artifact of the two failures and must NOT be read as a depth effect.
+
+**Report the instability, do not merely exclude it.** VoxPopuli L5 LoRA is 3/3 clean, and
+L6 LoRA is 3/3 clean on SPGISpeech and on GigaSpeech (final eval losses match their own
+L5 references). The 2/5 rate is specific to adapting the tied `embed_tokens` on
+VoxPopuli. The two mechanisms differ, so report the rate and both modes -- do not assert
+a single cause.
+"""
+
+
 def markdown(rows):
     out = []
     out.append("## Complete numerical results (W4 — R1-2.4, R3-7)\n")
@@ -161,6 +186,9 @@ def markdown(rows):
                "beside them.\n")
     out.append("**†** marks cells with n < 3, where the SD is an indication, not an "
                "estimate.\n")
+    # Emitted here, not hand-added to the .md, because this file is overwritten on every
+    # regeneration and a hand-added footnote silently disappears with it.
+    out.append(CAVEAT_L6_LORA)
     for corpus in ("voxpopuli", "spgispeech", "gigaspeech"):
         sub = [r for r in rows if r["corpus"] == corpus]
         if not sub:
