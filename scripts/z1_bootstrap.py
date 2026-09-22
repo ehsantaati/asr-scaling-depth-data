@@ -273,15 +273,53 @@ def ci(v, alpha=0.05):
     return float(lo), float(hi)
 
 
+# Report at most this many seeds per cell so every cell's CI is computed over the
+# same n as its mean/SD in the W4 table, even though the campaign itself deliberately
+# ran some LoRA cells (gigaspeech/l4_lora, gigaspeech/l5_lora, spgispeech/l5_lora,
+# voxpopuli/l6_lora) with 5 seeds -- see CLAUDE.md "The asymmetric seed design is
+# deliberate." The extra seeds' runs and predictions are untouched on disk; this only
+# caps what gets pooled into the bootstrap. The same seeds are kept across every eval
+# set of a cell, per the paper's convention that in-domain and OOD results use the
+# same retained seeds.
+#
+# Kept seeds are the lowest-valued N -- EXCEPT voxpopuli/l6_lora, where two of the five
+# seeds are the documented failures (CAVEAT_L6_LORA in w4_tables.py / footnote c in the
+# manuscript table): s1234 (9.332 WER) decodes with repetition loops, s12345 (7.433)
+# has a training-loss excursion. The lowest-valued rule would silently keep s1234 --
+# one of the two runs footnote c says to exclude -- so this cell is seed-selected by
+# hand to match the paper's own "reported over three of five seeds" convention instead.
+FORCE_SEEDS = {
+    ("voxpopuli", "l6_lora"): {123456, 123, 42},  # excludes 1234, 12345 -- see above
+}
+MAX_SEEDS_PER_CELL = 3
+
+
 def scan_cells(roots, eval_set_of=in_domain_set):
     """{(corpus, cell): {eval_set: [(edits, lens), ...]}} over every complete run."""
     cells = defaultdict(lambda: defaultdict(list))
+    seeds = defaultdict(dict)  # (corpus, cell) -> {seed: run_dir}, lowest kept
+    for root in roots:
+        for manifest in sorted(Path(root).glob("*/*/*/run_manifest.json")):
+            run = manifest.parent
+            m = json.load(manifest.open())
+            if m.get("status") != "complete":
+                continue
+            corpus, cell = run.parts[-3], run.parts[-2]
+            seeds[(corpus, cell)][m["seeding"]["seed"]] = run
+    kept = {}
+    for key, s in seeds.items():
+        if key in FORCE_SEEDS:
+            kept[key] = {run for seed, run in s.items() if seed in FORCE_SEEDS[key]}
+        else:
+            kept[key] = {run for _, run in sorted(s.items())[:MAX_SEEDS_PER_CELL]}
     for root in roots:
         for manifest in sorted(Path(root).glob("*/*/*/run_manifest.json")):
             run = manifest.parent
             if json.load(manifest.open()).get("status") != "complete":
                 continue
             corpus, cell = run.parts[-3], run.parts[-2]
+            if run not in kept[(corpus, cell)]:
+                continue
             name = eval_set_of(run)
             if not name:
                 continue

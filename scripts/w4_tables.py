@@ -46,6 +46,23 @@ IN_DOMAIN = {
 OOD = ("openslr-librispeech-asr-clean", "openslr-librispeech-asr-other")
 BATCHES = ("b1", "b2", "b3", "b4", "b5", "b10", "b11", "b13")
 
+# Report at most this many seeds per cell so every row in the table shows the
+# same n, even though the campaign itself deliberately ran some LoRA cells
+# (gigaspeech/l4_lora, gigaspeech/l5_lora, spgispeech/l5_lora, voxpopuli/l6_lora)
+# with 5 seeds -- see CLAUDE.md "The asymmetric seed design is deliberate." The
+# extra seeds' runs are untouched on disk; this only caps what this table
+# aggregates. Kept seeds are the lowest-valued N, which matches the seed set
+# every other LoRA cell in the campaign already uses (42, 123, 1234) --
+# EXCEPT voxpopuli/l6_lora, where s1234 is one of the two documented failures
+# (CAVEAT_L6_LORA below: decode repetition loops, 9.332 WER) and the
+# lowest-valued rule would silently keep it. That cell is seed-selected by
+# hand to match the paper's own "reported over three of five seeds" footnote,
+# which keeps the three clean seeds and excludes s1234 and s12345.
+FORCE_SEEDS = {
+    ("b13", "voxpopuli", "l6_lora"): {123456, 123, 42},
+}
+MAX_SEEDS_PER_CELL = 3
+
 
 def load_runs(root="outputs/rev"):
     """{(batch, corpus, cell): [ {manifest, cost}, ... ]} over complete runs."""
@@ -59,6 +76,12 @@ def load_runs(root="outputs/rev"):
             cp = mp.parent / "cost.json"
             cost = json.load(cp.open()) if cp.exists() else {}
             cells[(batch, corpus, cell)].append({"m": m, "c": cost, "dir": mp.parent})
+    for key, runs in cells.items():
+        if key in FORCE_SEEDS:
+            cells[key] = [r for r in runs if r["m"]["seeding"]["seed"] in FORCE_SEEDS[key]]
+        else:
+            runs.sort(key=lambda r: r["m"]["seeding"]["seed"])
+            cells[key] = runs[:MAX_SEEDS_PER_CELL]
     return cells
 
 
