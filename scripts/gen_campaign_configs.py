@@ -151,6 +151,8 @@ CELLS = [
 #   shallow  L0 x {1e-5, 1e-4} on VoxPopuli. R1-3.4 asks for shallow *and* deep. Put on
 #            VoxPopuli because a GigaSpeech pass costs ~4x the wall-clock for the same
 #            answer, and the 1e-5 arm doubles as B2's VoxPopuli L0 anchor.
+#            3e-5 added 2026-09-25 as a third point on this arm, matching the L5/L6
+#            grid, on explicit request rather than as part of the original R1-3.4 scope.
 #   LoRA     L5 x {3e-5, 1e-4} on GigaSpeech. R3-2 objects that FT and LoRA share one
 #            learning rate, making the comparison possibly unfair; LoRA usually wants a
 #            higher LR. Without this arm the FT-vs-LoRA crossover stays confounded.
@@ -167,6 +169,7 @@ B3_CELLS = [
     ("voxpopuli",  "L6", "full", 3e-5),
     ("voxpopuli",  "L6", "full", 1e-4),
     ("voxpopuli",  "L0", "full", LR_BASE),   # anchor; also B2's VoxPopuli L0
+    ("voxpopuli",  "L0", "full", 3e-5),
     ("voxpopuli",  "L0", "full", 1e-4),
 ]
 B3_SEED = 42

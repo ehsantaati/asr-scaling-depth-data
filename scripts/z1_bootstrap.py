@@ -96,6 +96,31 @@ CONTESTED = [
     ("L4 LoRA @20%: sub0 vs sub1", "l4_lora_frac20_sub0", "l4_lora_frac20_sub1"),
     ("L4 LoRA: 50% vs 20% sub0", "l4_lora_frac50_sub0", "l4_lora_frac20_sub0"),
     ("L4 LoRA: 20% sub0 vs 10% sub0", "l4_lora_frac20_sub0", "l4_lora_frac10_sub0"),
+    # B14 (GigaSpeech only): the fixed-budget twin of B11, same six (fraction, subset)
+    # cells at L4 but with max_steps held at 42,504 (one full-data epoch) instead of
+    # scaling down with the fraction. Same two kinds of row as B11, plus the regime
+    # comparison itself -- DATA-LIMITED (B11) vs FIXED-BUDGET (B14) at the identical
+    # (fraction, subset) cell, which is the number that answers whether the regime
+    # gap is bigger than the subset-to-subset spread it sits beside.
+    ("L4 LoRA FB: 100% vs 50%", "l4_lora", "l4_lora_frac50_sub0_fb"),
+    ("L4 LoRA FB: 100% vs 20% sub0", "l4_lora", "l4_lora_frac20_sub0_fb"),
+    ("L4 LoRA FB: 100% vs 20% sub1", "l4_lora", "l4_lora_frac20_sub1_fb"),
+    ("L4 LoRA FB: 100% vs 10% sub0", "l4_lora", "l4_lora_frac10_sub0_fb"),
+    ("L4 LoRA FB: 100% vs 10% sub1", "l4_lora", "l4_lora_frac10_sub1_fb"),
+    ("L4 LoRA FB: 100% vs 10% sub2", "l4_lora", "l4_lora_frac10_sub2_fb"),
+    ("L4 LoRA FB @10%: sub0 vs sub1", "l4_lora_frac10_sub0_fb", "l4_lora_frac10_sub1_fb"),
+    ("L4 LoRA FB @10%: sub0 vs sub2", "l4_lora_frac10_sub0_fb", "l4_lora_frac10_sub2_fb"),
+    ("L4 LoRA FB @10%: sub1 vs sub2", "l4_lora_frac10_sub1_fb", "l4_lora_frac10_sub2_fb"),
+    ("L4 LoRA FB @20%: sub0 vs sub1", "l4_lora_frac20_sub0_fb", "l4_lora_frac20_sub1_fb"),
+    ("L4 LoRA FB: 50% vs 20% sub0", "l4_lora_frac50_sub0_fb", "l4_lora_frac20_sub0_fb"),
+    ("L4 LoRA FB: 20% sub0 vs 10% sub0", "l4_lora_frac20_sub0_fb", "l4_lora_frac10_sub0_fb"),
+    # Regime comparison, same (fraction, subset) cell, DL (B11) vs FB (B14).
+    ("L4 LoRA regime @50% sub0: DL vs FB", "l4_lora_frac50_sub0", "l4_lora_frac50_sub0_fb"),
+    ("L4 LoRA regime @20% sub0: DL vs FB", "l4_lora_frac20_sub0", "l4_lora_frac20_sub0_fb"),
+    ("L4 LoRA regime @20% sub1: DL vs FB", "l4_lora_frac20_sub1", "l4_lora_frac20_sub1_fb"),
+    ("L4 LoRA regime @10% sub0: DL vs FB", "l4_lora_frac10_sub0", "l4_lora_frac10_sub0_fb"),
+    ("L4 LoRA regime @10% sub1: DL vs FB", "l4_lora_frac10_sub1", "l4_lora_frac10_sub1_fb"),
+    ("L4 LoRA regime @10% sub2: DL vs FB", "l4_lora_frac10_sub2", "l4_lora_frac10_sub2_fb"),
 ]
 
 
@@ -126,6 +151,30 @@ POOLED = [
      ["l4_lora_frac20_sub0", "l4_lora_frac20_sub1"]),
     ("L4 LoRA: 100% vs 10%  (pooled)", "gigaspeech", ["l4_lora"],
      ["l4_lora_frac10_sub0", "l4_lora_frac10_sub1", "l4_lora_frac10_sub2"]),
+    # B14: the fixed-budget twin of the ladder above. Same subset grouping, same
+    # shared-resample pooling; only the cell names carry the `_fb` suffix and the
+    # 100% endpoint is the same b1 anchor both regimes converge to.
+    ("L4 LoRA FB: 100% vs 50%  (pooled)", "gigaspeech", ["l4_lora"], ["l4_lora_frac50_sub0_fb"]),
+    ("L4 LoRA FB: 50% vs 20%   (pooled)", "gigaspeech", ["l4_lora_frac50_sub0_fb"],
+     ["l4_lora_frac20_sub0_fb", "l4_lora_frac20_sub1_fb"]),
+    ("L4 LoRA FB: 20% vs 10%   (pooled)", "gigaspeech",
+     ["l4_lora_frac20_sub0_fb", "l4_lora_frac20_sub1_fb"],
+     ["l4_lora_frac10_sub0_fb", "l4_lora_frac10_sub1_fb", "l4_lora_frac10_sub2_fb"]),
+    ("L4 LoRA FB: 100% vs 20%  (pooled)", "gigaspeech", ["l4_lora"],
+     ["l4_lora_frac20_sub0_fb", "l4_lora_frac20_sub1_fb"]),
+    ("L4 LoRA FB: 100% vs 10%  (pooled)", "gigaspeech", ["l4_lora"],
+     ["l4_lora_frac10_sub0_fb", "l4_lora_frac10_sub1_fb", "l4_lora_frac10_sub2_fb"]),
+    # Regime comparison, pooled over subsets on shared resamples -- the per-subset
+    # DL-vs-FB pairs in CONTESTED disagree at 10% (one of three clears zero), which is
+    # exactly the shape that makes a single pairing misleading. This is the number that
+    # answers "is fixed-budget worse than data-limited at low fractions", not any one
+    # subset's pairing.
+    ("L4 LoRA regime @20% (pooled): DL vs FB", "gigaspeech",
+     ["l4_lora_frac20_sub0", "l4_lora_frac20_sub1"],
+     ["l4_lora_frac20_sub0_fb", "l4_lora_frac20_sub1_fb"]),
+    ("L4 LoRA regime @10% (pooled): DL vs FB", "gigaspeech",
+     ["l4_lora_frac10_sub0", "l4_lora_frac10_sub1", "l4_lora_frac10_sub2"],
+     ["l4_lora_frac10_sub0_fb", "l4_lora_frac10_sub1_fb", "l4_lora_frac10_sub2_fb"]),
 ]
 
 

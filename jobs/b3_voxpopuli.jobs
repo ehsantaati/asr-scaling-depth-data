@@ -7,4 +7,5 @@ voxpopuli_l5_full_lr1e4_s42	configs/rev/b3/voxpopuli/l5_full_lr1e4.yaml	42	s42	o
 voxpopuli_l6_full_lr3e5_s42	configs/rev/b3/voxpopuli/l6_full_lr3e5.yaml	42	s42	outputs/rev/b3/voxpopuli/l6_full_lr3e5	-
 voxpopuli_l6_full_lr1e4_s42	configs/rev/b3/voxpopuli/l6_full_lr1e4.yaml	42	s42	outputs/rev/b3/voxpopuli/l6_full_lr1e4	-
 voxpopuli_l0_full_s42	configs/rev/b3/voxpopuli/l0_full.yaml	42	s42	outputs/rev/b3/voxpopuli/l0_full	-
+voxpopuli_l0_full_lr3e5_s42	configs/rev/b3/voxpopuli/l0_full_lr3e5.yaml	42	s42	outputs/rev/b3/voxpopuli/l0_full_lr3e5	-
 voxpopuli_l0_full_lr1e4_s42	configs/rev/b3/voxpopuli/l0_full_lr1e4.yaml	42	s42	outputs/rev/b3/voxpopuli/l0_full_lr1e4	-

@@ -266,9 +266,9 @@ def _plateau_inset(ax, drawn, x_from, x_to, note, log_y=False):
     axin.set_xlim(x_from, x_to)
     if log_y:
         axin.set_yscale("log")
-    axin.tick_params(labelsize=6, length=2, pad=1.5)
+    axin.tick_params(labelsize=10, length=2, pad=1.5)
     axin.ticklabel_format(axis="x", style="sci", scilimits=(3, 3), useMathText=True)
-    axin.xaxis.get_offset_text().set_fontsize(6)
+    axin.xaxis.get_offset_text().set_fontsize(9.5)
     for sp in ("top", "right"):
         axin.spines[sp].set_visible(False)
     axin.set_facecolor("white")
@@ -277,7 +277,7 @@ def _plateau_inset(ax, drawn, x_from, x_to, note, log_y=False):
     # One right-aligned line: the inset's own x-axis already gives the step range,
     # and a left-aligned two-line title collides with the marker tag.
     axin.set_title(f"zoom, linear scale · {note}",
-                   fontsize=6.2, color=INK2, loc="right", pad=3)
+                   fontsize=10, color=INK2, loc="right", pad=3)
     return axin
 
 
@@ -323,7 +323,7 @@ def fig1_loss_curves(out):
     Returns the provenance records so main() can print what each curve was built
     from -- run directories, n, and which held-out quantity the right column used.
     """
-    fig, axes = plt.subplots(2, 2, figsize=(9.6, 7.4))
+    fig, axes = plt.subplots(2, 2, figsize=(15.5, 12.0))
     report, markers = [], []
 
     for ri, row in enumerate(FIG1_ROWS):
@@ -336,8 +336,8 @@ def fig1_loss_curves(out):
 
         ind = IN_DOMAIN[row["corpus"]]
         ho_sources, ho_label = set(), None
-        ends, drawn_tr, drawn_ho = [], [], []
-        train_lo = None
+        drawn_tr, drawn_ho = [], []
+        train_lo, ho_lo = None, None
 
         for spec, runs in loaded:
             n = len(runs)
@@ -361,14 +361,19 @@ def fig1_loss_curves(out):
             if hx is not None:
                 if ylab:
                     ho_label = ylab
+                # The held-out legend carries the final WER inline (unlike the
+                # training-loss legend), since this panel is where that number
+                # belongs and a separate leader-line label per curve does not
+                # scale down to where two curves end a few pixels apart.
+                lbl_ho = f"{lbl}  — final WER {wer:.3f}"
+                ho_lo = min(ho_lo, hvals.min()) if ho_lo else hvals.min()
                 if src == "checkpoint_wer":
                     ax_ho.plot(hx, hvals.mean(axis=0), color=spec["c"], ls=spec["ls"],
-                               lw=1.8, marker="o", ms=5, mec="white", mew=1.2, label=lbl)
+                               lw=1.8, marker="o", ms=5, mec="white", mew=1.2, label=lbl_ho)
                 else:
-                    band(ax_ho, hx, hvals, spec["c"], spec["ls"], lbl, z=z)
+                    band(ax_ho, hx, hvals, spec["c"], spec["ls"], lbl_ho, z=z)
                     if spec.get("in_zoom", True):
                         drawn_ho.append((hx, hvals, spec["c"], spec["ls"], z))
-                ends.append((hx[-1], float(hvals.mean(axis=0)[-1]), wer, spec))
 
             report.append({
                 "regime": row["regime"], "corpus": row["corpus"], "cell": spec["cell"],
@@ -392,18 +397,23 @@ def fig1_loss_curves(out):
             print(f"  WARNING: {row['regime']} mixes held-out sources: {sorted(ho_sources)}")
 
         ax_tr.set_yscale("log")
-        ax_tr.set_ylabel("Training loss, log scale")
+        ax_tr.set_ylabel("Training loss, log scale", fontsize=15)
         # Open white space under the plateau so the row legend has somewhere to sit
         # that is not on top of a curve. Costs nothing on a log axis.
         if train_lo is not None:
             ax_tr.set_ylim(bottom=train_lo / 3.0)
         ax_ho.set_yscale("log")
-        ax_ho.set_ylabel(ho_label or "Held-out")
+        ax_ho.set_ylabel(ho_label or "Held-out", fontsize=15)
+        # Same trick as the training panel: open white space under the plateau so
+        # the legend has somewhere to sit that is not on top of a curve.
+        if ho_lo is not None:
+            ax_ho.set_ylim(bottom=ho_lo / 3.0)
         for ax in (ax_tr, ax_ho):
             ax.set_xlim(0, row["max_steps"])
-            ax.set_xlabel("Optimization step")
+            ax.set_xlabel("Optimization step", fontsize=15)
             ax.grid(axis="y")
             ax.set_axisbelow(True)
+            ax.tick_params(axis="both", labelsize=13)
 
         # Plateau zooms. These are added before the annotations so the direct labels
         # and the best-checkpoint tag can be placed clear of them.
@@ -411,21 +421,6 @@ def fig1_loss_curves(out):
                                 row["note_train"])
         ins_ho = _plateau_inset(ax_ho, drawn_ho, zoom_from, row["max_steps"],
                                 row["note_held"])
-
-        # Final in-domain WER, printed at the end of each held-out curve. Placed in
-        # the right margin with a leader and staggered in value order: on GigaSpeech
-        # the LoRA and full-FT curves end ~0.03 apart on a log axis and inline
-        # labels would overlap.
-        ends.sort(key=lambda e: e[1])
-        for i, (ex, ey, wer, spec) in enumerate(ends):
-            dy = (i - (len(ends) - 1) / 2) * 15
-            ax_ho.annotate(f"{spec['label']}\nfinal WER {wer:.3f}",
-                           xy=(ex, ey), xycoords="data",
-                           xytext=(16, dy), textcoords="offset points",
-                           fontsize=7, color=spec["c"], va="center", ha="left",
-                           annotation_clip=False,
-                           arrowprops=dict(arrowstyle="-", color=spec["c"],
-                                           lw=0.7, alpha=0.6, shrinkA=0, shrinkB=2))
 
         # The best-checkpoint marker. Deep full FT on GigaSpeech peaks at 10% of the
         # budget: to the right of this line the training loss keeps falling while
@@ -445,7 +440,7 @@ def fig1_loss_curves(out):
                         ax.axvline(x, color=mcol, ls=(0, (3, 3)), lw=1.0, alpha=0.85, zorder=1)
                     ax.annotate(tag, xy=(lo, 0.99), xycoords=("data", "axes fraction"),
                                 xytext=(3, 0), textcoords="offset points",
-                                fontsize=6.8, color=mcol, va="top", ha="left",
+                                fontsize=10.5, color=mcol, va="top", ha="left",
                                 linespacing=1.35)
             elif mk["kind"] == "line":
                 tag = f"{mk['title']}\nstep {mk['step']:,} of {row['max_steps']:,}"
@@ -455,7 +450,7 @@ def fig1_loss_curves(out):
                     ax.annotate(tag, xy=(mk["step"], 0.99),
                                 xycoords=("data", "axes fraction"),
                                 xytext=(4, 0), textcoords="offset points",
-                                fontsize=6.8, color=mcol, va="top", ha="left",
+                                fontsize=10.5, color=mcol, va="top", ha="left",
                                 linespacing=1.35)
                 for axin in (ins_tr, ins_ho):
                     if axin is not None:
@@ -464,37 +459,23 @@ def fig1_loss_curves(out):
 
         head = (f"{row['regime']} · {CORPUS_LABEL[row['corpus']]}\n"
                 f"in-domain test set, n = {row['denom']:,} utterances")
-        ax_tr.set_title(f"{head}", color=INK, loc="left", fontsize=8.5, pad=6)
-        ax_ho.set_title(f"{head}", color=INK, loc="left", fontsize=8.5, pad=6)
-        # One legend per row, in the left panel: the same series appear in both
-        # columns, so repeating it would only cost space.
-        ax_tr.legend(loc="lower left", fontsize=7.5, borderaxespad=0.6,
+        ax_tr.set_title(f"{head}", color=INK, loc="left", fontsize=15, pad=10)
+        ax_ho.set_title(f"{head}", color=INK, loc="left", fontsize=15, pad=10)
+        # Each panel gets its own legend, in the open space under its own plateau.
+        # The held-out legend additionally carries the final WER per curve (see
+        # lbl_ho above), replacing the external leader-line labels that used to
+        # sit in the right margin -- those collided whenever two curves ended
+        # within a few pixels of each other.
+        ax_tr.legend(loc="lower left", fontsize=12.5, borderaxespad=0.6,
+                     handlelength=2.6, labelspacing=0.35)
+        ax_ho.legend(loc="lower left", fontsize=12.5, borderaxespad=0.6,
                      handlelength=2.6, labelspacing=0.35)
 
     fig.suptitle("Training and held-out trajectories under both regimes "
                  "(left: training loss · right: held-out performance)",
-                 fontsize=11, color=INK, y=0.985)
-    caption = [
-        "Shaded bands span the observed range across SEEDS (min–max), not bootstrap "
-        "confidence intervals; n per condition is given in the row legend.",
-        "Per-seed curves are smoothed over a short step window before the envelope is "
-        "taken, so the band shows seed spread rather than mini-batch logging noise.",
-    ]
-    span = next((m for m in markers if m["kind"] == "span" and m.get("lo") is not None), None)
-    if span:
-        caption.append(
-            "The shaded vertical span is the observed range of per-seed held-out "
-            "minima, read from the 250-step eval log —\nnot the 9-checkpoint B8 "
-            "selection grid, whose spacing is coarser than the peak is sharp.")
-    singles = [r["label"] for r in report if r["n"] == 1]
-    if singles:
-        caption.append(
-            f"{', '.join(singles)} ran at a single seed (42) and carries NO band: its "
-            "line is one run, and its seed spread is unmeasured, not small.")
-    fig.text(0.5, 0.005, "\n".join(caption),
-             ha="center", va="bottom", fontsize=7.5, color=INK2)
-    fig.subplots_adjust(left=0.075, right=0.79, top=0.885, bottom=0.155,
-                        hspace=0.52, wspace=0.60)
+                 fontsize=19, color=INK, y=0.985)
+    fig.subplots_adjust(left=0.065, right=0.97, top=0.88, bottom=0.07,
+                        hspace=0.60, wspace=0.40)
     fig.savefig(out / "fig1_loss_curves.png")
     fig.savefig(out / "fig1_loss_curves.pdf")
     plt.close(fig)
