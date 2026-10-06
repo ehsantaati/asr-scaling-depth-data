@@ -22,8 +22,12 @@ larger decoder scopes are adapted.
 
 ## Installation
 
-Python 3.12 is supported. The runner scripts prefer the project Poetry
-environment.
+Python `>=3.12,<3.13` is required. The runner scripts prefer the project
+Poetry environment. Check the active interpreter with:
+
+```bash
+poetry run python --version
+```
 
 ### Install Poetry
 
