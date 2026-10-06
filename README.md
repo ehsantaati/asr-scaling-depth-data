@@ -1,4 +1,5 @@
-# Whisper decoder adaptation reproducibility code
+# ASR Depth-Data Scaling
+This repository accompanies the paper **Data and Capacity Trade-offs in In-Domain Parameter-Efficient Adaptation of Whisper Medium**. The work presents a systematic empirical study of how adaptation depth, training data availability, and optimization budget jointly influence performance in end-to-end automatic speech recognition (ASR). The manuscript is currently under review.
 
 This repository contains the training, evaluation, dataset preparation, and
 statistical analysis code for the submitted study of decoder adaptation depth,
