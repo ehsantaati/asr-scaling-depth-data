@@ -5,8 +5,7 @@ from .. import types
 
 # Path to the local HF loading script (data/local_datasets/spgispeech_2/).
 # Resolved relative to this file so the repo is portable; the previous hardcoded
-# /mnt/asr-data-scaling/... path does not exist on the current host. Override with
-# SPGISPEECH2_LOADER if the loader lives elsewhere. The corpus itself (shards/,
+# Override with SPGISPEECH2_LOADER if the loader lives elsewhere. The corpus itself (shards/,
 # alignment_files/) is located separately by SPGISPEECH2_ROOT — see
 # data/local_datasets/spgispeech_2/spgispeech_2.py.
 _LOADER_DIR = str(Path(__file__).resolve().parents[1] / "local_datasets" / "spgispeech_2")
@@ -34,10 +33,10 @@ SPGISPEECH_2_CONFIG = types.DatasetConfig(
         # ~1029 h, while logging "epoch 1.0". The archived TensorBoard confirms it:
         # full-data runs stop at step 9797 with train/epoch = 0.9999, and the
         # data-scaling runs at 4898 / 1959 / 979 -- exactly 50%, 20% and 10% of that.
-        # This is the origin of Table 3's ~1026 effective hours (action W5, R1-7.5).
+        # This produces the approximately 1,026-hour experimental pool.
         #
         # Raising it to 512724 would train 32045 steps, 3.27x the original budget, and
-        # the rerun would no longer be comparable to the numbers this revision exists
+        # changing the declared pool would change the training budget and is not equivalent
         # to re-measure. The budget stays; what changes is that we now state it.
         # run_manifest.json records rows_read alongside declared_total, so every run
         # carries the gap in its own artifacts.

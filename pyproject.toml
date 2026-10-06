@@ -6,17 +6,16 @@ authors = [
     {name = "Ehsan Taati",email = "55898484+ehsantaati@users.noreply.github.com"}
 ]
 readme = "README.md"
-# Pinned to the exact interpreter the revision campaign runs on (CPython 3.12, the
+# Pinned to the tested interpreter (CPython 3.12, the
 # system Python of Ubuntu 24.04 and of docker/Dockerfile). An unbounded ">=3.11" is
 # also unsatisfiable: simple-parsing declares "<4.0" and torch's triton "<3.15", so
 # resolution fails against the open upper end.
 requires-python = ">=3.12,<3.13"
-# Versions are pinned to the exact environment used for the revision rerun campaign
-# (R1-7.4: "exact dataset versions, preprocessing scripts ... should be made available").
-# Loosening any of these invalidates the reproducibility claim in the response letter;
-# the same versions are recorded per run in run_manifest.json -> provenance/fingerprint.
+# Versions are pinned to the tested reproduction environment
+# Dataset versions and preprocessing scripts are pinned for reproducibility.
+# Keep these versions aligned with the recorded run provenance.
 dependencies = [
-    # --- core training / inference stack (campaign-pinned) ---
+    # --- core training / inference stack ---
     "torch (==2.9.1)",
     "transformers (==4.57.3)",
     "peft (==0.18.0)",
@@ -35,6 +34,7 @@ dependencies = [
     "whisper-normalizer (==0.1.12)",
     # --- config parsing / logging ---
     "simple-parsing (==0.1.7)",
+    "pyyaml (>=6.0,<7.0)",
     "python-dotenv (>=1.2.1,<2.0.0)",
     "tensorboard (==2.20.0)",
     "wandb (==0.23.0)",

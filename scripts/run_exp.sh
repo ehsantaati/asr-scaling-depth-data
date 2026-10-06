@@ -1,6 +1,5 @@
 #!/bin/bash
-# Single training run. For the revision rerun campaign use the job queue instead
-# (scripts/queue_launch.sh); this wrapper is kept for one-off / debugging runs.
+# Run one explicitly selected training experiment.
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
@@ -18,6 +17,15 @@ if [ ! -f "$CONFIG_PATH" ]; then
   echo "Error: Config file not found: $CONFIG_PATH"
   exit 1
 fi
+
+CONFIG_PATH="$(cd "$(dirname "$CONFIG_PATH")" && pwd)/$(basename "$CONFIG_PATH")"
+
+case "$CONFIG_PATH" in
+  *.yaml|*.yml) ;;
+  *) echo "Error: configuration must be a .yaml or .yml file: $CONFIG_PATH" >&2; exit 1 ;;
+esac
+
+require_dependencies "$PY"
 
 echo "Running experiment with config $CONFIG_PATH on device $DEVICE (python: $PY)"
 cd "$REPO_ROOT"

@@ -60,12 +60,12 @@ def set_trainable_parameters(
     """Freeze everything except parameters selected by ``target_modules``.
 
     Returns the resolved trainable parameter names so they can be recorded in the run
-    manifest (R1-7.2).
+    manifest.
 
-    ``allow_encoder_adaptation`` is a scoped exception for action B5 only, which exists
-    to answer R1-5.2 -- whether decoder-side adaptation really captures the dominant
+    ``allow_encoder_adaptation`` is a scoped exception for encoder-control runs,
+    used to compare encoder-side and decoder-side adaptation.
     domain-specific gains -- and cannot be run without adapting encoder layers. It
-    defaults to False so every other run in the campaign is still protected by the
+    defaults to False so the main experiments remain protected by the
     frozen-encoder invariant, and it must be set explicitly in the config, so any run
     that used it says so in its own manifest. Do not flip the default.
     """
@@ -114,7 +114,7 @@ def set_trainable_parameters(
 def resolve_shuffle_seed(config, fraction: float) -> Tuple[int, str]:
     """Pick the data-order seed according to ``config.data_order_seed_mode``.
 
-    Under "auto" (the campaign default) full-data runs vary their data order with the
+    Under "auto", full-data runs vary their data order with the
     run seed, giving full fine-tuning a genuine data-order noise source; fractional
     runs keep the fixed data_seed so that varying the seed does not also change *which*
     samples the run sees (PartitionedDataset slices the shuffled stream).
@@ -171,9 +171,9 @@ def _best_checkpoint_step(metrics_path: Path, ckpt_steps: List[int]) -> Optional
 def run_best_vs_final(
     *, config, model, processor, output_dir: Path, ckpt_steps: List[int], final_state
 ) -> Dict[str, Any]:
-    """Score the best-validation checkpoint against the final model (action B8).
+    """Score the best-validation checkpoint against the final model.
 
-    R2-6c: evaluating only the final model can specifically penalise the deep
+    Evaluating only the final model can specifically penalise deep
     full-parameter configurations that the paper argues are "harder to optimize", so
     the ranking has to be shown to survive checkpoint selection. Runs here, in-job,
     because the checkpoints do not outlive this process.
@@ -368,7 +368,7 @@ def main():
             model.generation_config.suppress_tokens = []
 
             # Untie embeddings and reinitialize output weights.
-            # See manifest.UNTIE_PROCEDURE for the description recorded per run (R1-7.3).
+            # See manifest.UNTIE_PROCEDURE for the recorded initialization procedure.
             untied = False
             if model.config.tie_word_embeddings:
                 model.config.tie_word_embeddings = False
@@ -586,14 +586,14 @@ def main():
                 # were identical across "different" seeds.
                 seed=config.seed,
                 data_seed=config.data_seed,
-                # Explicit rather than inherited: R1-7.1 asks for these by name.
+                # Explicit rather than inherited so the run is self-describing.
                 optim=config.optim,
                 lr_scheduler_type=config.lr_scheduler_type,
                 max_grad_norm=config.max_grad_norm,
                 adam_beta1=config.adam_beta1,
                 adam_beta2=config.adam_beta2,
                 adam_epsilon=config.adam_epsilon,
-                # HF's own memory deltas, as a cross-check on CostCallback (action B6).
+                # HF's own memory deltas provide a cross-check on CostCallback.
                 skip_memory_metrics=False,
                 report_to=["tensorboard"],
                 remove_unused_columns=False, # Required for custom collator/dataset
@@ -681,7 +681,7 @@ def main():
             decode_dtype = decoding.torch_dtype(config.decode_dtype)
             model = model.to(decode_dtype)
 
-            # 5b. Best-val checkpoint vs final model (action B8 / R2-6c), performed
+            # 5b. Compare the best-validation checkpoint with the final model,
             # here because the checkpoints are deleted at the end of this job.
             best_vs_final = None
             bvf_t0 = time.perf_counter()
@@ -727,7 +727,7 @@ def main():
                 )
             inference_wall_s = time.perf_counter() - infer_t0
 
-            # 7. Cost metrics (action B6 / R1-6)
+            # 7. Cost metrics.
             steps_completed = trainer.state.global_step
             effective_bs = config.batch_size * config.grad_accum_steps * max(1, trainer.args.world_size)
             cost = {

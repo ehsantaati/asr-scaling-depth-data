@@ -9,10 +9,10 @@
 # "/pyproject.toml: not found", because pyproject.toml and poetry.lock live at the
 # repo root and are not in that context.
 #
-# Reproducibility artifact for the revision campaign (R1-7.4): the image pins the
+# Reproducibility image: the image pins the
 # same interpreter and the same locked dependency set the reported runs used.
 #
-# Note the campaign itself is driven from the host virtualenv (scripts/*.sh call
+# The example runs are driven from the host virtualenv or this image (scripts/*.sh call
 # .venv/bin/python). This image exists so a third party can reproduce a run without
 # reconstructing that environment by hand.
 ARG CUDA_VERSION=12.8.0
@@ -52,18 +52,18 @@ ENV \
 WORKDIR ${PROJECT_ROOT}
 
 # Ubuntu 24.04 ships CPython 3.12, which is what pyproject.toml requires and what the
-# campaign ran on. The previous deadsnakes/python3.11 pin was inherited from another
+# tested on. The previous deadsnakes/python3.11 pin was inherited from another
 # project (its stated reason, a mecab-ko conflict, is not a dependency here).
 #
 # Runtime libraries that the pipeline genuinely needs and the old image lacked:
 #   libsndfile1  - soundfile, used by data/data_sample.py and the SPGISpeech loader
 #   ffmpeg       - decoding GigaSpeech opus / VoxPopuli audio via librosa
-#   jq, tmux     - required by scripts/queue_*.sh (util-linux supplies flock)
+#   jq           - used by artifact checks (util-linux supplies flock)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.12 python3.12-dev python3.12-venv \
         build-essential git \
         ffmpeg libsndfile1 \
-        jq tmux util-linux procps \
+        jq util-linux procps \
         ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 

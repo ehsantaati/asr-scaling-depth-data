@@ -96,8 +96,8 @@ def process_split(data_dir, output_dir, split_name, json_filename, max_count=100
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert SPGISpeech 2 to WebDataset shards")
-    parser.add_argument("--data_dir", default="/mnt/data/SPGISPeech_2", help="Source directory")
-    parser.add_argument("--output_dir", default="/mnt/data/SPGISPeech_2/shards", help="Output directory for shards")
+    parser.add_argument("--data_dir", required=True, help="Source SPGISpeech directory")
+    parser.add_argument("--output_dir", required=True, help="Output directory for shards")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of examples per split for testing")
     parser.add_argument("--shard_size", type=int, default=1000, help="Number of examples per shard")
     

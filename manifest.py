@@ -6,8 +6,8 @@ manifest is written twice per run:
   * ``manifest_pre.json`` right after the run directory is created, so a job that
     crashes mid-training is still self-describing;
   * ``run_manifest.json`` at the end, with resolved counts, results and a
-    ``status`` field. The job queue treats ``status == "complete"`` as the
-    authoritative "this run is done" signal (see scripts/queue_worker.sh).
+    ``status`` field. Completed artifacts are authoritative for executed
+    schedules and reproducibility checks.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 SCHEMA_VERSION = 2
 
 # Literal description of the input/output embedding untying performed in train.py.
-# R1-7.3 asks for this procedure "in sufficient detail for independent replication".
+# Record this procedure so independent runs can reproduce initialization.
 UNTIE_PROCEDURE = (
     "Whisper ties proj_out to model.decoder.embed_tokens. Before adaptation we set "
     "model.config.tie_word_embeddings=False and replace model.proj_out with a fresh "
@@ -163,7 +163,7 @@ def config_sha256(config: Any) -> str:
 
 
 def resolve_target_modules(model, requested: Optional[List[str]], is_lora: bool) -> Dict[str, Any]:
-    """Record what the target-module list actually matched (R1-7.2).
+    """Record which model modules the requested target list matched.
 
     PEFT matches by exact name or dotted suffix; set_trainable_parameters matches by
     name-boundary prefix. Those are different rules applied to the *same* YAML list,

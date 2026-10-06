@@ -1,6 +1,6 @@
 """TrainerCallbacks that make a run self-documenting.
 
-Everything here exists because the campaign gets exactly one shot per run: the
+These callbacks record per-run metrics and resource usage:
 original checkpoints were deleted, so any diagnostic not captured while the job is
 alive is lost. Four concerns, four callbacks:
 
@@ -62,7 +62,7 @@ class JsonlMetricsCallback(TrainerCallback):
 
 
 class CostCallback(TrainerCallback):
-    """Measure what R1-6 asks for: wall-clock, peak GPU memory, throughput.
+    """Measure wall-clock time, peak GPU memory, and throughput.
 
     HF's ``skip_memory_metrics`` defaults to True and nothing in the original code
     touched ``torch.cuda.max_memory_allocated``, so no cost table could be built.
@@ -103,7 +103,7 @@ class CostCallback(TrainerCallback):
 
 
 class PeriodicTrainableCheckpointCallback(TrainerCallback):
-    """Write trainable-only checkpoints every ~``fraction`` of the run (action B8).
+    """Write trainable-only checkpoints at regular fractions of the run.
 
     HF's ``save_strategy="steps"`` is unusable here: for Whisper-Medium full FT it
     writes model *plus* AdamW state, ~9-10 GB per checkpoint. Saving only the

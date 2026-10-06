@@ -260,7 +260,7 @@ class VoiceDataset(SizedIterableDataset):
         error_details = ", ".join(error_summary) if error_summary else "None"
 
         # Expose the counters so callers can report the WER denominator instead of
-        # implying that a filtered evaluation set was complete (R1-7.4). Consumed by
+        # implying that a filtered evaluation set was complete. Consumed by
         # decoding._collect_filter_counts and recorded in run_manifest.json.
         self.last_pass_counts = {
             "rows_read": actual_length,

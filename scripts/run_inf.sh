@@ -18,6 +18,15 @@ if [ ! -f "$CONFIG_PATH" ]; then
   exit 1
 fi
 
+CONFIG_PATH="$(cd "$(dirname "$CONFIG_PATH")" && pwd)/$(basename "$CONFIG_PATH")"
+
+case "$CONFIG_PATH" in
+  *.yaml|*.yml) ;;
+  *) echo "Error: configuration must be a .yaml or .yml file: $CONFIG_PATH" >&2; exit 1 ;;
+esac
+
+require_dependencies "$PY"
+
 echo "Running inference with config $CONFIG_PATH on device $DEVICE (python: $PY)"
 cd "$REPO_ROOT"
 CUDA_VISIBLE_DEVICES="$DEVICE" \

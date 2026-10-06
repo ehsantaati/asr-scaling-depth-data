@@ -1,24 +1,25 @@
-# Shared helpers for the runner scripts. Source, do not execute.
+# Shared helpers for the single-run scripts. Source, do not execute.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Resolve the Python interpreter, container-first.
-#
-# Order matters. docker-compose bind-mounts the repo over /app, so the *host*
-# .venv is visible inside the container at /app/.venv -- built for the host, with
-# host absolute paths baked into its scripts. Picking it up inside the container
-# would silently run the wrong environment (this is exactly how an earlier
-# verification run reported host package versions while claiming to test the image).
-#
-#   1. explicit $PY               -- caller knows best
-#   2. $VIRTUAL_ENV               -- the image sets this to /opt/venv, outside the mount
-#   3. <repo>/.venv               -- host development environment
-#   4. python3 on PATH            -- last resort
+# Resolve the Python interpreter for a standalone run.
+# Explicit overrides and active environments take precedence; otherwise prefer
+# Poetry's project environment, then a repository .venv, then python3 on PATH.
 resolve_py() {
     if [[ -n "${PY:-}" ]]; then
         printf '%s' "$PY"
     elif [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
         printf '%s' "${VIRTUAL_ENV}/bin/python"
+    elif command -v poetry >/dev/null 2>&1; then
+        local poetry_py
+        poetry_py="$(cd "$REPO_ROOT" && poetry env info --executable 2>/dev/null || true)"
+        if [[ -x "$poetry_py" ]]; then
+            printf '%s' "$poetry_py"
+        elif [[ -x "${REPO_ROOT}/.venv/bin/python" ]]; then
+            printf '%s' "${REPO_ROOT}/.venv/bin/python"
+        else
+            command -v python3
+        fi
     elif [[ -x "${REPO_ROOT}/.venv/bin/python" ]]; then
         printf '%s' "${REPO_ROOT}/.venv/bin/python"
     else
@@ -33,4 +34,13 @@ require_py() {
         return 1
     fi
     printf '%s' "$py"
+}
+
+require_dependencies() {
+    local py="$1"
+    if ! "$py" -c 'import simple_parsing, torch, yaml' >/dev/null 2>&1; then
+        echo "Error: project dependencies are not installed for $py." >&2
+        echo "Run: poetry install --without dev (or use an activated compatible environment)." >&2
+        return 1
+    fi
 }

@@ -1,9 +1,4 @@
-"""LibriSpeech configs, used as the out-of-domain (OOD) evaluation sets.
-
-Ported from branch `dev` for the revision campaign (action B7 / R1-5.5, R3-10).
-Only the `test` splits are exercised by the campaign; the train/validation
-splits are retained so the configs stay usable for other purposes.
-"""
+"""LibriSpeech configurations used for out-of-domain evaluation."""
 
 from .. import types
 
@@ -12,7 +7,7 @@ LS_BASE_CONFIG = types.DatasetConfig(
     name="openslr-librispeech-asr",
     path="openslr/librispeech_asr",
     # Cached, not streamed: the two test splits total ~0.64 GiB and are re-read by
-    # every run in the campaign. trust_remote_code stays False (the inherited
+    # repeatedly. trust_remote_code stays False (the inherited
     # default) so the Hub's parquet export is used and only the requested split is
     # downloaded -- the script loader materialises train.100 and train.360 as well,
     # 30 GB for 0.33 GiB of need.

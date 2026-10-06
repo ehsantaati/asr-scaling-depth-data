@@ -5,13 +5,9 @@
 #   docker compose -f docker/docker-compose.yml build
 #   docker compose -f docker/docker-compose.yml up -d
 #
-#   # smoke test inside the container
+#   # run a representative example inside the container
 #   docker compose -f docker/docker-compose.yml exec asr-data-scaling \
-#       env GPU=0 bash scripts/queue_worker.sh jobs/smoke.jobs
-#
-#   # full campaign under tmux inside the container
-#   docker compose -f docker/docker-compose.yml exec asr-data-scaling \
-#       bash scripts/queue_launch.sh jobs/campaign.jobs
+#       bash scripts/run_exp.sh configs/examples/lora.yaml 0
 #
 # Host paths are configurable; defaults match this machine. Override in docker/.env
 # or the shell:

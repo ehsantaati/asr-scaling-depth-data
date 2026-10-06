@@ -44,7 +44,7 @@ def _wer_metric():
 
 @dataclasses.dataclass
 class DecodeSpec:
-    """Everything R1-7.1 asks about decoding, in one serializable object.
+    """Serializable decoding settings used for evaluation.
 
     The same spec is embedded in every eval result, so a fine-tuned run and the
     vanilla baseline can be shown to have been scored identically.

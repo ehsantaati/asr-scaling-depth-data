@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Download and cache the corpora a campaign needs, before any job starts.
+"""Download and cache the corpora needed for a reproducible run.
 
 Why this exists: with streaming, HF fetches shards over the network on every run
 and keeps nothing. Measured on VoxPopuli it delivered ~2 MB/s against a link that

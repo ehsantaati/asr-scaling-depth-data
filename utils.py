@@ -93,7 +93,7 @@ def save_trainable_state(model, path, dtype=torch.float16,
     """Write a trainable-only checkpoint and assert the frozen-encoder invariant.
 
     ``allow_encoder_adaptation`` is the same scoped exception as in
-    train.set_trainable_parameters: action B5 adapts encoder layers on purpose and
+    train.set_trainable_parameters: encoder-control runs may adapt encoder layers and
     must be able to persist them. It defaults to False, so a config that does not
     ask for it still cannot leak an encoder tensor into a checkpoint."""
     from safetensors.torch import save_file
@@ -129,7 +129,7 @@ class WhisperDataproc(datasets.Dataproc):
         self.max_label_length = max_label_length
         # Whisper's own normalizer, built from the model's english.json spelling map.
         # The previous EnglishTextNormalizer({}) had an empty map, disabling
-        # British->American spelling normalization (R1-7.1).
+        # British-to-American spelling normalization.
         self.normalizer = processor.tokenizer.normalize
 
     def _process(self, sample):

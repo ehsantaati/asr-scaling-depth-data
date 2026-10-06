@@ -1,10 +1,9 @@
 #!/bin/bash
 # Artifact contract for a completed run. Exits non-zero unless every artifact the
-# revision plan depends on is present and well-formed.
+# verification depends on is present and well-formed.
 #
 # The point is to fail here, on one small run, rather than after 40 expensive ones.
-# The original campaign's checkpoints were deleted, so a missing diagnostic cannot be
-# recovered after the fact.
+# A missing diagnostic cannot be recovered after the training run completes.
 #
 #   bash scripts/check_artifacts.sh <run_dir>
 #   bash scripts/check_artifacts.sh --seed-divergence <run_dir_a> <run_dir_b>
@@ -19,7 +18,7 @@ check(){ if eval "$1" >/dev/null 2>&1; then ok "$2"; else bad "$2"; fi; }
 command -v jq >/dev/null || { echo "jq is required"; exit 1; }
 
 # ---------------------------------------------------------------- seed divergence
-# The check that validates the whole campaign: if --seed does not change the loss
+# The check that validates repeated runs: if --seed does not change the loss
 # trajectory, then multi-seed runs are measuring nothing and B1 is worthless.
 seed_divergence() {
   local A="$1" B="$2"
@@ -111,8 +110,8 @@ audit_run() {
   # that names encoder modules. It fails late (after the GPU time is spent) rather than
   # early, but nothing can enter the results without passing it.
   #
-  # Action B5 is the sanctioned exception (R1-5.2): it adapts the encoder on purpose and
-  # sets allow_encoder_adaptation in its config. Invert the check for those runs rather
+  # Encoder-control runs set allow_encoder_adaptation explicitly. Invert the check for
+  # those runs rather
   # than skipping it, so a B5 run that somehow adapted *no* encoder parameter is still
   # caught -- that would mean the target list silently matched nothing.
   if jq -e '.provenance.config_resolved.allow_encoder_adaptation == true' "$M" >/dev/null 2>&1; then
@@ -123,14 +122,14 @@ audit_run() {
                                                           "no encoder parameter is trainable"
   fi
   check "jq -e '.optimization.optim != null and .optimization.lr_scheduler_type != null and .optimization.max_grad_norm != null' '$M'" \
-                                                          "optimizer/scheduler/clipping recorded (R1-7.1)"
+                                                          "optimizer/scheduler/clipping recorded"
   check "jq -e '.schedule.max_steps > 0 and .schedule.steps_completed > 0' '$M'" \
-                                                          "step counts recorded (R2-6a)"
+                                                          "step counts recorded"
   check "jq -e '.seeding.training_args_seed == .seeding.seed' '$M'" \
                                                           "TrainingArguments.seed == config seed (the seed-plumbing fix)"
-  check "jq -e '.model.untie_procedure != null' '$M'"     "embedding-untie procedure recorded (R1-7.3)"
+  check "jq -e '.model.untie_procedure != null' '$M'"     "embedding-untie procedure recorded"
   check "jq -e '.decoding.force_language == true and .decoding.num_beams != null' '$M'" \
-                                                          "decoding settings recorded (R1-7.1)"
+                                                          "decoding settings recorded"
 
   # --- curves ---------------------------------------------------------------
   local J="$RUN/metrics.jsonl"
@@ -168,7 +167,7 @@ audit_run() {
   check "[[ -f '$C' ]]"                                   "cost.json exists"
   if [[ -f "$C" ]]; then
     check "jq -e '.train_wall_s > 0' '$C'"                "train wall-clock > 0"
-    check "jq -e '.peak_mem_alloc_bytes > 0' '$C'"        "peak GPU memory recorded (R1-6.2)"
+    check "jq -e '.peak_mem_alloc_bytes > 0' '$C'"        "peak GPU memory recorded"
     check "jq -e '.train_samples_per_second > 0' '$C'"    "throughput recorded"
     check "jq -e '.total_flos_proxy != null' '$C'"        "compute proxy recorded"
     check "jq -e '.fingerprint.gpus | length > 0' '$C'"   "hardware fingerprint populated"
@@ -198,15 +197,15 @@ audit_run() {
       check "jq -e '.denominator_legacy != null' '$mj'"   "$name: denominator_legacy present"
       check "jq -e '.delta_wer_legacy_minus_fixed != null' '$mj'" \
                                                           "$name: legacy-vs-fixed delta recorded"
-      check "[[ -s '$d/predictions.jsonl' ]]"             "$name: per-utterance predictions.jsonl (action Z1)"
+      check "[[ -s '$d/predictions.jsonl' ]]"             "$name: per-utterance predictions.jsonl"
 
       jq -r '"       -> \(.kind // "?")  wer_fixed=\(.wer_fixed)  n=\(.denominator)  |  wer_legacy=\(.wer_legacy)  n=\(.denominator_legacy)  |  delta=\(.delta_wer_legacy_minus_fixed)"' "$mj"
     done
   fi
   check "(( $n_sets >= 1 ))"                              "at least one eval set scored ($n_sets)"
-  check "(( $n_ood >= 2 ))"                               "LibriSpeech clean+other OOD scored ($n_ood) (action B7)"
+  check "(( $n_ood >= 2 ))"                               "LibriSpeech clean+other OOD scored ($n_ood)"
 
-  # --- best-vs-final (action B8) --------------------------------------------
+  # --- best-vs-final comparison --------------------------------------------
   local B="$RUN/best_vs_final.json"
   if jq -e '.run_best_vs_final == true' "$M" >/dev/null 2>&1 \
      || jq -e '.provenance.config_resolved.run_best_vs_final == true' "$M" >/dev/null 2>&1; then

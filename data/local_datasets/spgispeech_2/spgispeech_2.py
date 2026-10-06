@@ -13,7 +13,7 @@ https://datasets.kensho.com/datasets/spgispeech2
 # Root of the extracted corpus, containing shards/{train,validation,test}/*.tar and
 # alignment_files/{call_id}/{snippet_id}.json. Override with SPGISPEECH2_ROOT; the
 # builder's own `data_dir` config option still takes precedence when supplied.
-SPGISPEECH2_ROOT = os.environ.get("SPGISPEECH2_ROOT", "/home/ehsan/data/SPGISPeech_2")
+SPGISPEECH2_ROOT = os.environ.get("SPGISPEECH2_ROOT", "")
 
 class Spgispeech2(datasets.GeneratorBasedBuilder):
     """SPGISpeech 2 dataset."""
@@ -235,4 +235,3 @@ class Spgispeech2(datasets.GeneratorBasedBuilder):
                 break
                 
         return chunks
-

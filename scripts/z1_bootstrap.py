@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-"""Action Z1: bootstrap confidence intervals over per-utterance predictions.
+"""Bootstrap confidence intervals over per-utterance predictions.
 
-Answers R1-2.2 ("several reported WER differences are very small and may not be
-statistically meaningful"), and supports R1-2.3, R2-3 and R3-3.
+The paired evaluation-set bootstrap quantifies uncertainty in WER differences.
 
 What this measures, and what it does not
 ----------------------------------------
@@ -24,7 +23,7 @@ different number from the one in the manifest.
 
 Two prediction formats are read:
   * reruns  -- eval/<set>/predictions.jsonl, one {idx, prediction, reference} per line
-  * original campaign -- <run>/predictions.json, {"predictions": {set: [...]},
+  * legacy run -- <run>/predictions.json, {"predictions": {set: [...]},
     "references": {set: [...]}} with the two lists positionally aligned
 Both are already normalised: recomputing WER from them reproduces `wer_fixed` in
 run_manifest.json exactly (verified to 4 dp on GigaSpeech L5 LoRA, 9.3723).
@@ -76,7 +75,7 @@ CONTESTED = [
     ("LoRA: L5 vs L6", "l5_lora", "l6_lora"),
     ("LoRA: L4 vs L5", "l4_lora", "l5_lora"),
     ("LoRA: full data vs 10%", "l5_lora", "l5_lora_frac10"),
-    # B11 (GigaSpeech only): the data-scaling curve R1-5.3 asks for, at L4. Two kinds of
+    # GigaSpeech L4 data-scaling comparisons use two kinds of
     # row, and they must not be conflated when reported:
     #   * 100% vs each reduced fraction -- the scaling effect itself;
     #   * subset vs subset at a fixed fraction -- how much of that effect is just which
@@ -97,7 +96,7 @@ CONTESTED = [
     ("L4 LoRA: 50% vs 20% sub0", "l4_lora_frac50_sub0", "l4_lora_frac20_sub0"),
     ("L4 LoRA: 20% sub0 vs 10% sub0", "l4_lora_frac20_sub0", "l4_lora_frac10_sub0"),
     # B14 (GigaSpeech only): the fixed-budget twin of B11, same six (fraction, subset)
-    # cells at L4 but with max_steps held at 42,504 (one full-data epoch) instead of
+    # cells at L4 with max_steps held at the executed 42,489-step GigaSpeech budget instead of
     # scaling down with the fraction. Same two kinds of row as B11, plus the regime
     # comparison itself -- DATA-LIMITED (B11) vs FIXED-BUDGET (B14) at the identical
     # (fraction, subset) cell, which is the number that answers whether the regime
@@ -249,7 +248,7 @@ def load_rerun(run_dir, eval_set):
 
 
 def load_legacy(run_dir, eval_set):
-    """Original-campaign predictions, which come in two shapes.
+    """Read legacy predictions, which come in two shapes.
 
     VoxPopuli runs scored more than one set, so predictions/references are dicts
     keyed by set name (voxpopuli-en, voxpopuli-en-accented). GigaSpeech and
@@ -323,16 +322,16 @@ def ci(v, alpha=0.05):
 
 
 # Report at most this many seeds per cell so every cell's CI is computed over the
-# same n as its mean/SD in the W4 table, even though the campaign itself deliberately
+# same n as the reported mean/SD, even though some cells deliberately
 # ran some LoRA cells (gigaspeech/l4_lora, gigaspeech/l5_lora, spgispeech/l5_lora,
-# voxpopuli/l6_lora) with 5 seeds -- see CLAUDE.md "The asymmetric seed design is
-# deliberate." The extra seeds' runs and predictions are untouched on disk; this only
+# voxpopuli/l6_lora) with 5 seeds. The extra seeds are not part of this compact
+# compact release; this only
 # caps what gets pooled into the bootstrap. The same seeds are kept across every eval
 # set of a cell, per the paper's convention that in-domain and OOD results use the
 # same retained seeds.
 #
 # Kept seeds are the lowest-valued N -- EXCEPT voxpopuli/l6_lora, where two of the five
-# seeds are the documented failures (CAVEAT_L6_LORA in w4_tables.py / footnote c in the
+# seeds are the documented failures (see the manuscript footnote c and the
 # manuscript table): s1234 (9.332 WER) decodes with repetition loops, s12345 (7.433)
 # has a training-loss excursion. The lowest-valued rule would silently keep s1234 --
 # one of the two runs footnote c says to exclude -- so this cell is seed-selected by
@@ -435,12 +434,7 @@ def report_comparisons(cells, n_boot, rng, out):
                 })
 
 
-# Superseded original runs. `data_scaling/` was rerun on 2026-04-01 over the 2026-03-09
-# `data_scaling_old/`, and the manuscript reports the newer set: its SPGISpeech 10%
-# instability figure of 8.21 matches 008/0081/data_scaling/..._frac_0.1_subset_2
-# (8.226), where the older twin gives 5.415. Note that all_exps_final.csv still carries
-# the *older* values under the newer paths for 39 rows -- see PROGRESS §3.10. Bootstrap
-# the runs the paper actually reports, not the ones it superseded.
+# Exclude known superseded run-directory patterns by default.
 SUPERSEDED = ("data_scaling_old", "_old", "repeat_inference")
 
 
@@ -477,7 +471,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scan", nargs="*", default=["outputs/rev/b1", "outputs/rev/b3"],
                     help="rerun roots to scan for completed runs")
-    ap.add_argument("--legacy", help="original-campaign root, e.g. outputs/voxpopuli")
+    ap.add_argument("--legacy", help="legacy run root, e.g. outputs/voxpopuli")
     ap.add_argument("--eval-set", help="eval set name, required with --legacy")
     ap.add_argument("--compare-only", action="store_true", help="skip per-cell intervals")
     ap.add_argument("--include-superseded", action="store_true",

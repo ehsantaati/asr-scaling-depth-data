@@ -1,59 +1,86 @@
-# ASR Depth-Data Scaling
-This repository accompanies the paper **Model Scaling for Speech Recognition: Data and Depth Trade-offs in Domain-Specific Fine-Tuning**.
-The work presents a systematic empirical study of how adaptation depth, training data availability, and optimization budget jointly influence performance in end-to-end automatic speech recognition (ASR).
+# Whisper decoder adaptation reproducibility code
 
-Using Whisper-based models, we evaluate layer-wise decoder fine-tuning under both full-parameter and parameter-efficient (LoRA) settings across three datasets: SPGISpeech 2.0, VoxPopuli, and GigaSpeech. The study reveals that performance is not governed by data or model capacity alone, but by their interaction with optimization, where deeper adaptation improves performance but becomes unstable under limited data, and parameter-efficient methods can achieve competitive results with significantly fewer trainable parameters.
+This repository contains the training, evaluation, dataset preparation, and
+statistical analysis code for the submitted study of decoder adaptation depth,
+LoRA versus full fine-tuning, data scale, and optimisation budget in
+Whisper-Medium ASR.
 
-The findings provide practical guidance for efficient and robust domain adaptation of ASR systems, particularly in scenarios with constrained data and computational resources.
+The manuscript evaluates English ASR adaptation on SPGISpeech 2.0, VoxPopuli-en,
+and GigaSpeech-M. The main study compares decoder scopes L0, L2, L3, L4, L5,
+and L6 with the encoder frozen; L1 is not evaluated. It also includes LoRA-rank
+selection and L5 rank sensitivity, learning-rate sensitivity, an encoder-versus-
+decoder control on VoxPopuli, convergence checks, computational-cost recording,
+data-limited scaling, fixed-budget scaling, LibriSpeech OOD evaluation, and
+paired bootstrap uncertainty estimates.
 
-## Method Overview
+## Method overview
 
-<img src="imgs/overview.png" width="700"/>
+<img src="imgs/overview.png" alt="Layer-wise Whisper decoder adaptation" width="75%" />
 
-*Layer-wise Whisper's decoder adaptation under varying data and optimization regimes.*
+The encoder remains frozen in the main depth experiments while progressively
+larger decoder scopes are adapted.
 
-## Setup
+## Installation
 
-Open `.env` and add your Hugging Face token:
-```
-HF_TOKEN=hf_...
-```
+Python 3.12 is supported. The runner scripts prefer the project Poetry
+environment. Install the locked environment with:
 
-## Configuration Templates
-
-The `configs/` directory contains templates that demonstrate all available configuration options. These templates serve as starting points for various experiments.
-
-* `configs/template_full_ft.yaml`: Standard configuration for full model fine-tuning. Includes settings for dataset selection, data scaling, training hyperparameters, and layer-specific regularization.
-* `configs/template_lora_ft.yaml`: Configuration for Parameter-Efficient Fine-Tuning (PEFT) using Low-Rank Adaptation (LoRA). Includes options to define LoRA rank, alpha, dropout, block initialization, and specific target projections.
-* `configs/template_inference.yaml`: Configuration dedicated to model evaluation. Includes settings for evaluation datasets, fast inference optimizations, and mixed precision.
-
-### Compute-Matched Training
-
-The codebase supports compute-matched training when scaling datasets. By setting `num_epochs: 0` in the training configuration, the script calculates `max_steps` based on the size of the full, unpartitioned dataset.
-
-This ensures that when training on a smaller fraction of the dataset, the model still trains for the exact same number of steps (compute) as one epoch on 100% of the data. For example, training on a 10% data fraction with `num_epochs: 0` results in effectively training on that 10% for 10 epochs.
-
-## Usage
-
-You can run experiments and inference using the provided bash scripts. They simplify execution and allow you to specify the target GPU device.
-
-### Standard Training
-
-To run a single training experiment, use `run_exp.sh`:
 ```bash
-./scripts/run_exp.sh configs/template_full_ft.yaml [device_id]
+poetry install --without dev
 ```
 
-### Inference Only
+Hugging Face access may require accepted dataset terms and a local `HF_TOKEN`.
+Keep credentials in `.env`; never commit them.
 
-To run inference using an inference configuration, use `run_inf.sh`:
+## Datasets and examples
+
+The reported experiments use SPGISpeech 2.0, VoxPopuli-en, and GigaSpeech-M.
+LibriSpeech test-clean and test-other are used for OOD evaluation. Settings are
+documented in `docs/experiment_specification.md`. SPGISpeech requires external
+shards and alignment files; set `SPGISPEECH2_ROOT` to that prepared corpus.
+
+The four representative configurations in `configs/examples/` cover full
+fine-tuning, decoder LoRA, OOD inference, and fixed-budget data scaling:
+
 ```bash
-./scripts/run_inf.sh configs/template_inference.yaml [device_id]
+bash scripts/run_exp.sh configs/examples/lora.yaml
+bash scripts/run_inf.sh configs/examples/inference_ood.yaml
 ```
 
-### Multi-Seed Training
+Pass a second argument such as `0` to select a CUDA device. If the required
+Python packages are missing, the scripts stop with the Poetry installation
+command instead of launching a partial run.
 
-To run experiments across multiple random seeds, use `run_ms_exp.sh`:
+The examples are intentionally generic. The manuscript’s exact depth, rank,
+learning-rate, fraction, subset, seed, and regime settings are summarized in
+`docs/experiment_specification.md`; the full experiment grid is not included.
+
+Bootstrap analysis over completed run directories is run with:
+
 ```bash
-./scripts/run_ms_exp.sh configs/template_full_ft.yaml [device_id]
+python scripts/z1_bootstrap.py --scan outputs/rev
 ```
+
+Statistical analysis consumes completed prediction and reference artifacts;
+generated run artifacts are intentionally excluded here.
+
+## Outputs and reproducibility
+
+Training writes a run manifest, metrics, evaluation predictions, cost metadata,
+and trainable weights beneath the configured output directory. Completed run
+artifacts are authoritative for executed budgets. The executed GigaSpeech
+full-data/fixed-budget setting was **42,489 steps**; references to 42,504 are
+stale unless a completed artifact proves otherwise.
+
+The main optimisation setting is AdamW with a linear schedule, learning rate
+`1e-5`, warmup ratio `0.01`, weight decay `0.1`, batch size `16`, gradient
+accumulation `1`, and FP16. Main LoRA runs use rank `64`, alpha `128`, and
+dropout `0.1`; sensitivity runs vary rank or learning rate as described in the
+experiment specification. Evaluation uses greedy English transcription with a
+maximum of 200 generated tokens.
+
+Experiments were designed for a single NVIDIA RTX A6000 with FP16 and batch
+size 16. Runtime and memory depend on dataset, adaptation depth, and hardware.
+Exact fractional subsets require the original dataset ordering and recorded
+data-order seed. This repository does not ship checkpoints, logs, predictions,
+or other generated run artifacts.

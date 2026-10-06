@@ -141,7 +141,7 @@ def evaluate_datasets(
 ):
     """Score every in-domain and OOD eval set, on both the fixed and legacy paths.
 
-    The fixed path (decoding.transcribe_and_score) is the campaign's primary result.
+    The fixed path (decoding.transcribe_and_score) is the primary result.
     The legacy path (run_inference_map, unchanged) is scored once per set so the
     old-vs-new evaluation delta is measured rather than assumed; both run at the same
     dtype, so the delta isolates the decode path (language forcing, normalizer,
@@ -246,7 +246,7 @@ def evaluate_datasets(
 
 
 def _write_per_set_results(set_dir, metrics, predictions, references):
-    """One directory per eval set; predictions as JSONL for streaming (action Z1)."""
+    """Write one directory per evaluation set with streaming-friendly JSONL predictions."""
     set_dir = Path(set_dir)
     set_dir.mkdir(parents=True, exist_ok=True)
     with open(set_dir / "metrics.json", "w") as f:

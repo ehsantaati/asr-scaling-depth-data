@@ -37,7 +37,7 @@ class BaseConfig:
     seed: int = 42
     data_seed: int = 42
     
-    # Out-of-domain evaluation sets (action B7 / R1-5.5, R3-10). Scored after the
+    # Out-of-domain evaluation sets, scored after the
     # in-domain sets with the identical decode spec, inside the training job.
     ood_eval_sets: List[Dict[str, Any]] = simple_parsing.list_field()
     ood_eval_dataset_args: types.EvalDatasetArgs = simple_parsing.field(
@@ -48,7 +48,7 @@ class BaseConfig:
     eval_batch_size: int = 8
 
     # Decoding (the fixed path -- see decoding.py). Stated explicitly rather than
-    # inherited from generation_config defaults, because R1-7.1 asks for them.
+    # inherited from generation_config defaults, so runs record the exact settings.
     decode_num_beams: int = 1
     decode_max_new_tokens: int = 200
     decode_force_language: bool = True
@@ -115,11 +115,9 @@ class TrainConfig(BaseConfig):
     # Number of random subsets to train for each fraction
     num_subsets: int = 1
     # Index of the FIRST partition to run, so a single (fraction, subset) cell can be
-    # its own job. The original campaign ran subsets 0..num_subsets-1 inside one job,
+    # its own run. Subsets are selected explicitly by this index.
     # which the rerun cannot do: invariant 1 is one job = one run directory, and
-    # queue_worker.sh's run_dir_for() globs `_subset_*` and takes the first hit, so a
-    # multi-subset job would be judged complete on subset 0 alone. Defaults to 0, which
-    # reproduces the previous behaviour exactly for every existing config.
+    # A single subset index makes each example run independently reproducible.
     subset_index: int = 0
 
     # Training parameters
@@ -134,7 +132,7 @@ class TrainConfig(BaseConfig):
     max_steps_fraction: float = 1.0  # Fraction of the calculated_max_steps to use
 
     # Optimizer / scheduler, stated explicitly instead of inherited silently from
-    # TrainingArguments defaults. R1-7.1 asks for exactly these values.
+    # Explicit training settings make runs self-describing.
     optim: str = "adamw_torch"
     lr_scheduler_type: str = "linear"
     max_grad_norm: float = 1.0
@@ -147,14 +145,14 @@ class TrainConfig(BaseConfig):
     #              variation comes only from initialization and dropout)
     #   "seed"  -> shuffle_seed = seed always (also changes WHICH samples a
     #              fractional run sees, conflating subset identity with noise)
-    #   "auto"  -> seed at fraction == 1.0, data_seed otherwise  [campaign default]
+    #   "auto"  -> seed at fraction == 1.0, data_seed otherwise
     data_order_seed_mode: str = "auto"
 
     # Evaluation / Train
     do_train: bool = True
     do_predict: bool = True
     # Absolute step grids, so curves from a 1.1k-step data-limited run and a 42k-step
-    # fixed-budget run land on a comparable x-axis (action Z3).
+    # fixed-budget runs use a comparable step axis.
     logging_steps: int = 25
     eval_steps: int = 250
     eval_on_start: bool = True
@@ -166,7 +164,7 @@ class TrainConfig(BaseConfig):
     preview_samples: int = 3
 
     # Periodic trainable-only checkpoints and the best-val-vs-final comparison
-    # (action B8 / R2-6c). Enabled on deep full-FT runs only; checkpoints are
+    # Enabled on selected full-FT runs; checkpoints are
     # deleted in-job once the comparison is written.
     checkpoint_fraction: float = 0.0  # 0 disables; 0.1 => ~10 checkpoints
     run_best_vs_final: bool = False
@@ -177,7 +175,7 @@ class TrainConfig(BaseConfig):
     # waste); "full" restores the old behaviour. Default resolves by method.
     save_mode: str = "auto"  # auto | adapter | trainable | full
 
-    # Scoped exception to the frozen-encoder invariant, for action B5 only (R1-5.2:
+    # Scoped exception for encoder-control experiments:
     # does decoder-side adaptation really capture the dominant domain-specific gains?).
     # That experiment cannot be run without adapting encoder layers, but every other
     # claim in the study is scoped to a frozen encoder, so the guards in

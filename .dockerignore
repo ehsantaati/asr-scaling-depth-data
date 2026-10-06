@@ -1,34 +1,22 @@
-# Without this the build context is ~13 GB: .venv alone is >3 GB and archive/,
-# outputs/ and the dataset trees dwarf it. Datasets and caches are bind-mounted at
-# run time (see docker/docker-compose.yml), never baked into the image.
 .git
 .venv
 venv
 __pycache__
 **/__pycache__
 *.py[cod]
-
-# Run artifacts and archived experiments
-outputs/
-archive/
-logs/
-wandb/
-runs/
-jobs/status/
-exps/
-
-# Data: mounted, not copied
-data/SPGISPeech_2/
-data/local_datasets/**/shards/
-*.tar
-*.arrow
-*.parquet
-
-# Local-only
 .env
 notebooks/
-instructions/
-.vscode/
-*.code-workspace
+outputs/
+logs/
+runs/
+wandb/
+checkpoints/
+archive/
+*.arrow
+*.parquet
+*.tar
+*.ckpt
+*.safetensors
+*.pt
+*.pth
 .DS_Store
-.ipynb_checkpoints

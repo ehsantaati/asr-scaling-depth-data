@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# Temporary fix for an issue where importing NLTK breaks PyTorch multiprocessing on MacOS.
+# Prevent NLTK's optional GUI dependency from being imported by worker processes.
 # For more details, see: https://github.com/nltk/nltk/issues/2949
 sys.modules["tkinter"] = None  # type: ignore
 import nltk  # needed for truecase # noqa: E402
@@ -91,6 +91,5 @@ NON_SCORING_WORDS = set(
     + list(GIGASPEECH_PUNCTUATIONS.keys())
     + GIGASPEECH_GARBAGE_UTTERANCE_TAGS
 )
-
 
 

@@ -8,7 +8,6 @@ inference.py — fail with ImportError. Keep this list in sync with the director
 
 from . import (
     openslr_librispeech_asr,
-    peoples_speech,
     speechcolab_gigaspeech,
     spgispeech_2,
     voxpopuli,
@@ -16,7 +15,6 @@ from . import (
 
 ALL_CONFIGS = (
     openslr_librispeech_asr.configs
-    + peoples_speech.configs
     + speechcolab_gigaspeech.configs
     + spgispeech_2.configs
     + voxpopuli.configs
