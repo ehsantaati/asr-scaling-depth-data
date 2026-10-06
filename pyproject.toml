@@ -6,35 +6,51 @@ authors = [
     {name = "Ehsan Taati",email = "55898484+ehsantaati@users.noreply.github.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+# Pinned to the tested interpreter (CPython 3.12, the
+# system Python of Ubuntu 24.04 and of docker/Dockerfile). An unbounded ">=3.11" is
+# also unsatisfiable: simple-parsing declares "<4.0" and torch's triton "<3.15", so
+# resolution fails against the open upper end.
+requires-python = ">=3.12,<3.13"
+# Versions are pinned to the tested reproduction environment
+# Dataset versions and preprocessing scripts are pinned for reproducibility.
+# Keep these versions aligned with the recorded run provenance.
 dependencies = [
-    "pandas (>=2.3.3,<3.0.0)",
-    "ipykernel (>=7.1.0,<8.0.0)",
-    "iprogress (>=0.4,<0.5)",
-    "python-dotenv (>=1.2.1,<2.0.0)",
-    "ipywidgets (>=8.1.8,<9.0.0)",
-    "numpy (==1.26.4)",
+    # --- core training / inference stack ---
+    "torch (==2.9.1)",
+    "transformers (==4.57.3)",
+    "peft (==0.18.0)",
+    "accelerate (==1.12.0)",
+    "safetensors (==0.7.0)",
     "datasets (==3.6.0)",
-    "librosa (>=0.11.0,<0.12.0)",
-    "simple-parsing (>=0.1.5)",
-
-    "jinja2 (>=3.1.0)",
-    "transformers (>=4.30.0)",
-    "torch (>=2.0.0)",
-    "soundfile (>=0.12.0)",
-    "truecase (>=0.0.14)",
-    "nltk (>=3.8.1)",
-    "evaluate (>=0.4.6,<0.5.0)",
-    "peft (>=0.18.0,<0.19.0)",
-    "wandb (>=0.23.0,<0.24.0)",
-    "tensorboard (>=2.20.0,<3.0.0)",
-    "jiwer (>=4.0.0,<5.0.0)",
+    "numpy (==1.26.4)",
+    # --- audio ---
+    "librosa (==0.11.0)",
+    "soundfile (==0.13.1)",
+    # --- metrics / text normalization ---
+    "evaluate (==0.4.6)",
+    "jiwer (==4.0.0)",
+    "truecase (==0.0.14)",
+    "nltk (==3.9.2)",
+    "whisper-normalizer (==0.1.12)",
+    # --- config parsing / logging ---
+    "simple-parsing (==0.1.7)",
+    "python-dotenv (>=1.2.1,<2.0.0)",
+    "tensorboard (==2.20.0)",
+    "wandb (==0.23.0)",
+    # --- analysis / notebooks ---
+    "pandas (==2.3.3)",
     "matplotlib (>=3.10.8,<4.0.0)",
     "seaborn (>=0.13.2,<0.14.0)",
-    "whisper-normalizer (>=0.1.12,<0.2.0)"
+    "ipykernel (>=7.1.0,<8.0.0)",
+    "iprogress (>=0.4,<0.5)",
+    "ipywidgets (>=8.1.8,<9.0.0)",
+    "jinja2 (>=3.1.0)",
 ]
 
 
+
+[tool.poetry]
+package-mode = false
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

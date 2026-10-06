@@ -101,9 +101,13 @@ def main():
     # We assume the model at model_path is the full merged model
     model = WhisperForConditionalGeneration.from_pretrained(model_path)
 
-    if config.fp16:
-        logging.info("Converting model to fp16")
-        model = model.half()
+    # Cast per the decode spec, not per the training-precision flag, so a fine-tuned
+    # run scored in-job and the vanilla baseline scored here use identical numerics.
+    import decoding as _decoding
+
+    dtype = _decoding.torch_dtype(getattr(config, "decode_dtype", "fp16"))
+    logging.info(f"Converting model to {config.decode_dtype} for decoding")
+    model = model.to(dtype)
 
     model.to(device)
     
@@ -133,49 +137,99 @@ def evaluate_datasets(
     output_dir,
     model_path,
     config_path=None,
-    training_time=None
+    training_time=None,
 ):
+    """Score every in-domain and OOD eval set, on both the fixed and legacy paths.
+
+    The fixed path (decoding.transcribe_and_score) is the primary result.
+    The legacy path (run_inference_map, unchanged) is scored once per set so the
+    old-vs-new evaluation delta is measured rather than assumed; both run at the same
+    dtype, so the delta isolates the decode path (language forcing, normalizer,
+    hidden filtering) and not a precision change.
+
+    Per-set output lands in <output_dir>/eval/<set>/{metrics.json,predictions.jsonl}
+    and is summarised in <output_dir>/results.json.
+    """
+    import decoding
+
     logging.info("Preparing and evaluating datasets independently...")
-    
+
+    spec = decoding.spec_from_config(config, path="fixed")
+    spec.batch_size = batch_size
+
+    in_domain = [(d, "in_domain", config.eval_dataset_args) for d in config.get_eval_sets()]
+    ood_args = getattr(config, "ood_eval_dataset_args", config.eval_dataset_args)
+    ood = [(d, "ood", ood_args) for d in getattr(config, "get_ood_eval_sets", list)()]
+
     all_metrics = {}
     all_predictions = {}
     all_references = {}
+    eval_root = Path(output_dir) / "eval"
 
-    for dataset_config in config.get_eval_sets():
+    for dataset_config, kind, ds_args in in_domain + ood:
         dataset_name = dataset_config.name
-        logging.info(f"Evaluating dataset: {dataset_name}")
-        
-        eval_dataset = prepare_dataset(
-            [dataset_config], config.eval_dataset_args
-        )
+        logging.info(f"Evaluating dataset: {dataset_name} ({kind})")
 
-        if config.use_fast_inference:
-            metrics, predictions, references = run_inference_map(
-                 model,
-                 processor,
-                 eval_dataset,
-                 batch_size=batch_size,
-                 language=config.language,
-                 num_workers=config.num_inference_workers
-            )
-        else:
-            metrics, predictions, references = run_inference_pipeline(
-                model,
-                processor,
-                eval_dataset,
-                device,
-                batch_size=batch_size,
-                language=config.language
-            )
+        # Fixed path -------------------------------------------------------------
+        eval_dataset = prepare_dataset([dataset_config], ds_args)
+        metrics, predictions, references = decoding.transcribe_and_score(
+            model, processor, eval_dataset, spec, desc=f"fixed:{dataset_name}"
+        )
+        metrics["kind"] = kind
+        # `wer` stays the fixed-path value so existing analysis notebooks keep working;
+        # `wer_fixed` is the unambiguous key.
+        metrics["wer_fixed"] = metrics["wer"]
+
+        # Legacy path ------------------------------------------------------------
+        # Rebuild the dataset: run_inference_map consumes/wraps the underlying HF
+        # object, and the fixed pass has already iterated this one.
+        if getattr(config, "score_legacy_path", False):
+            try:
+                legacy_dataset = prepare_dataset([dataset_config], ds_args)
+                legacy_metrics, legacy_preds, legacy_refs = run_inference_map(
+                    model,
+                    processor,
+                    legacy_dataset,
+                    batch_size=batch_size,
+                    language=config.language,
+                    num_workers=config.num_inference_workers,
+                )
+                metrics["wer_legacy"] = float(legacy_metrics["wer"])
+                metrics["denominator_legacy"] = len(legacy_refs)
+                metrics["legacy_dropped_vs_fixed"] = metrics["denominator"] - len(legacy_refs)
+                if metrics["denominator"]:
+                    metrics["legacy_dropped_pct"] = round(
+                        100.0 * metrics["legacy_dropped_vs_fixed"] / metrics["denominator"], 4
+                    )
+                metrics["delta_wer_legacy_minus_fixed"] = (
+                    metrics["wer_legacy"] - metrics["wer_fixed"]
+                )
+                all_predictions[f"{dataset_name}::legacy"] = legacy_preds
+                all_references[f"{dataset_name}::legacy"] = legacy_refs
+            except Exception as exc:
+                # A legacy-path failure must never lose the primary result.
+                logging.warning(f"Legacy scoring failed for {dataset_name}: {exc}")
+                metrics["wer_legacy"] = None
+                metrics["legacy_error"] = str(exc)
 
         all_metrics[dataset_name] = metrics
         all_predictions[dataset_name] = predictions
         all_references[dataset_name] = references
-    
-    # Save Results
-    # Construct combined dataset name string from evaluated sets
-    combined_dataset_name = f"{'+'.join([d.name for d in config.get_eval_sets()])}_{config.eval_dataset_args.split}"
-    
+
+        _write_per_set_results(
+            eval_root / dataset_name, metrics, predictions, references
+        )
+        logging.info(
+            f"{dataset_name}: WER(fixed)={metrics['wer_fixed']:.6f} on n={metrics['denominator']}"
+            + (
+                f" | WER(legacy)={metrics['wer_legacy']:.6f} on n={metrics.get('denominator_legacy')}"
+                if metrics.get("wer_legacy") is not None
+                else ""
+            )
+        )
+
+    combined_dataset_name = "+".join(sorted(all_metrics))
+
     save_inference_results(
         output_dir,
         all_metrics,
@@ -184,10 +238,22 @@ def evaluate_datasets(
         model_path,
         config_path=config_path,
         dataset_name=combined_dataset_name,
-        training_time=training_time
+        training_time=training_time,
+        decode_spec=spec.to_dict(),
     )
 
     return all_metrics
+
+
+def _write_per_set_results(set_dir, metrics, predictions, references):
+    """Write one directory per evaluation set with streaming-friendly JSONL predictions."""
+    set_dir = Path(set_dir)
+    set_dir.mkdir(parents=True, exist_ok=True)
+    with open(set_dir / "metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
+    with open(set_dir / "predictions.jsonl", "w") as f:
+        for i, (p, r) in enumerate(zip(predictions, references)):
+            f.write(json.dumps({"idx": i, "prediction": p, "reference": r}) + "\n")
 
 
 def save_inference_results(
@@ -198,17 +264,19 @@ def save_inference_results(
     model_path,
     config_path=None,
     dataset_name=None,
-    training_time=None
+    training_time=None,
+    decode_spec=None,
 ):
     # Ensure output_dir is Path
     output_dir = Path(output_dir)
-    
+
     results = {
         "model_path": str(model_path),
         "metrics": metrics,
         "config_path": str(config_path) if config_path else None,
         "dataset_name": dataset_name,
         "training_time": training_time,
+        "decode_spec": decode_spec,
     }
     
     results_file = output_dir / "results.json"

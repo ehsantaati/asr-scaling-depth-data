@@ -1,12 +1,12 @@
 import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import evaluate
 import torch
 import transformers
 from transformers import WhisperProcessor
-from transformers.models.whisper.english_normalizer import EnglishTextNormalizer
 
 from data import datasets, registry, types
 
@@ -73,12 +73,64 @@ def compute_and_save_dataset_metadata(dataset: datasets.SizedIterableDataset, ou
     return metadata
 
 
+def trainable_state_dict(model, dtype=torch.float16) -> Dict[str, torch.Tensor]:
+    """State dict restricted to parameters that require grad, cast to ``dtype``.
+
+    The encoder is frozen throughout this study, so persisting it multiplies storage
+    for no information. For full FT at L6 this is ~154M params (~308 MB in fp16)
+    against ~3 GB for the whole model.
+    """
+    trainable = {n for n, p in model.named_parameters() if p.requires_grad}
+    return {
+        k: v.detach().to(dtype).cpu()
+        for k, v in model.state_dict().items()
+        if k in trainable
+    }
+
+
+def save_trainable_state(model, path, dtype=torch.float16,
+                         allow_encoder_adaptation: bool = False) -> Dict[str, Any]:
+    """Write a trainable-only checkpoint and assert the frozen-encoder invariant.
+
+    ``allow_encoder_adaptation`` is the same scoped exception as in
+    train.set_trainable_parameters: encoder-control runs may adapt encoder layers and
+    must be able to persist them. It defaults to False, so a config that does not
+    ask for it still cannot leak an encoder tensor into a checkpoint."""
+    from safetensors.torch import save_file
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    state = trainable_state_dict(model, dtype=dtype)
+
+    leaked = [k for k in state if ".encoder." in k or k.startswith("model.encoder.")]
+    if leaked and not allow_encoder_adaptation:
+        raise RuntimeError(
+            f"Refusing to save: {len(leaked)} encoder tensors are marked trainable "
+            f"(first: {leaked[:3]}). The encoder must stay frozen. If this is the B5 "
+            f"encoder experiment, set allow_encoder_adaptation: true in the config."
+        )
+    if not state:
+        raise RuntimeError("Refusing to save an empty trainable state dict.")
+
+    save_file(state, str(path))
+    return {
+        "path": str(path),
+        "n_tensors": len(state),
+        "n_params": int(sum(v.numel() for v in state.values())),
+        "bytes": path.stat().st_size,
+        "dtype": str(dtype),
+    }
+
+
 class WhisperDataproc(datasets.Dataproc):
     def __init__(self, dataset, processor, max_label_length=448):
         super().__init__(dataset)
         self.processor = processor
         self.max_label_length = max_label_length
-        self.normalizer = EnglishTextNormalizer({})
+        # Whisper's own normalizer, built from the model's english.json spelling map.
+        # The previous EnglishTextNormalizer({}) had an empty map, disabling
+        # British-to-American spelling normalization.
+        self.normalizer = processor.tokenizer.normalize
 
     def _process(self, sample):
         # Process audio

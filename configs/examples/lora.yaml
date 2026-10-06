@@ -1,0 +1,29 @@
+model_id: "openai/whisper-medium"
+language: "en"
+task: "transcribe"
+train_sets: [{name: "speechcolab-gigaspeech-m", streaming: false}]
+train_dataset_args: {max_audio_duration_secs: 30}
+val_sets: [{name: "speechcolab-gigaspeech-m", streaming: false}]
+val_dataset_args: {max_samples: 256, max_audio_duration_secs: 30}
+eval_sets: [{name: "speechcolab-gigaspeech-m", streaming: false}]
+eval_dataset_args: {max_samples: -1, max_audio_duration_secs: 30}
+ood_eval_sets:
+  - {name: "openslr-librispeech-asr-clean"}
+  - {name: "openslr-librispeech-asr-other"}
+ood_eval_dataset_args: {max_samples: -1, max_audio_duration_secs: 30}
+data_fractions: [1.0]
+num_subsets: 1
+lora_config: {r: 64, lora_alpha: 128, lora_dropout: 0.1}
+target_modules: ["proj_out", "model.decoder.layers.23"]
+output_dir: "outputs/example_lora"
+num_epochs: 0
+batch_size: 16
+grad_accum_steps: 1
+learning_rate: 1e-5
+warmup_ratio: 0.01
+weight_decay: 0.1
+fp16: true
+data_seed: 42
+strict_reproducibility: true
+eval_steps: 1000
+eval_batch_size: 16

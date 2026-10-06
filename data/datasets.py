@@ -72,6 +72,8 @@ class VoiceDataset(SizedIterableDataset):
         self._rng = np.random.default_rng(self._args.shuffle_seed)
         self._name = "[unset]"
         self._length = -1
+        # Populated at the end of each __iter__ pass; see the note there.
+        self.last_pass_counts: Optional[Dict[str, Any]] = None
 
     # num_samples is the total number of samples in the dataset
     def _init_dataset(
@@ -100,6 +102,7 @@ class VoiceDataset(SizedIterableDataset):
         streaming: bool = True,
         audio_field: Optional[str] = None,
         features: Optional[hf_datasets.Features] = None,
+        trust_remote_code: bool = False,
     ) -> data.Dataset:
         # Handle slicing for streaming datasets manually
         # Syntax: split_name[start:stop]
@@ -132,7 +135,10 @@ class VoiceDataset(SizedIterableDataset):
             streaming=streaming,
             features=features,
             download_config=hf_datasets.DownloadConfig(max_retries=10),
-            trust_remote_code=True,
+            # Per-dataset, not hardcoded True: a script loader materialises every
+            # split of a config, so asking for one test split can pull tens of GB
+            # of unrelated training data. See DatasetConfig.trust_remote_code.
+            trust_remote_code=trust_remote_code,
         )
         
         if slice_start is not None:
@@ -253,6 +259,22 @@ class VoiceDataset(SizedIterableDataset):
             
         error_details = ", ".join(error_summary) if error_summary else "None"
 
+        # Expose the counters so callers can report the WER denominator instead of
+        # implying that a filtered evaluation set was complete. Consumed by
+        # decoding._collect_filter_counts and recorded in run_manifest.json.
+        self.last_pass_counts = {
+            "rows_read": actual_length,
+            "declared_total": self._length,
+            "yielded": actual_length - bad_samples - skipped_samples,
+            "bad_samples": bad_samples,
+            "none_sample": none_sample_count,
+            "empty_text": empty_text_count,
+            "none_audio": none_audio_count,
+            "empty_audio": empty_audio_count,
+            "skipped_over_max_duration": skipped_samples,
+            "max_audio_duration_secs": self._args.max_audio_duration_secs,
+        }
+
         if actual_length > 0 or bad_samples > 0 or skipped_samples > 0:
             logging.info(
                 f"Extracted {actual_length} samples from {self.name} (total: {len(self)}). "
@@ -324,6 +346,7 @@ class GenericDataset(VoiceDataset):
                     ),
                     audio_field=config.audio_field,
                     features=config.features,
+                    trust_remote_code=bool(config.trust_remote_code),
                 )
                 if split.num_samples is not None:
                     if hasattr(ds, "take"):

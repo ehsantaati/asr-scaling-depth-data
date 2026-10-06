@@ -1,0 +1,18 @@
+model_id: "openai/whisper-medium"
+language: "en"
+task: "transcribe"
+eval_sets: [{name: "voxpopuli-en", streaming: false}]
+ood_eval_sets:
+  - {name: "openslr-librispeech-asr-clean"}
+  - {name: "openslr-librispeech-asr-other"}
+eval_dataset_args: {max_samples: -1, max_audio_duration_secs: 30}
+ood_eval_dataset_args: {max_samples: -1, max_audio_duration_secs: 30}
+eval_batch_size: 16
+use_fast_inference: true
+num_inference_workers: 0
+decode_num_beams: 1
+decode_max_new_tokens: 200
+decode_force_language: true
+decode_dtype: "fp16"
+score_legacy_path: true
+output_dir: "outputs/example_inference"

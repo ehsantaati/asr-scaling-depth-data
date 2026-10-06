@@ -37,18 +37,40 @@ class BaseConfig:
     seed: int = 42
     data_seed: int = 42
     
+    # Out-of-domain evaluation sets, scored after the
+    # in-domain sets with the identical decode spec, inside the training job.
+    ood_eval_sets: List[Dict[str, Any]] = simple_parsing.list_field()
+    ood_eval_dataset_args: types.EvalDatasetArgs = simple_parsing.field(
+        default_factory=types.EvalDatasetArgs
+    )
+
     # Evaluation
     eval_batch_size: int = 8
-    
+
+    # Decoding (the fixed path -- see decoding.py). Stated explicitly rather than
+    # inherited from generation_config defaults, so runs record the exact settings.
+    decode_num_beams: int = 1
+    decode_max_new_tokens: int = 200
+    decode_force_language: bool = True
+    decode_dtype: str = "fp16"  # fp16 | fp32 | bf16; applies in-job AND standalone
+
+    # Legacy scoring path (inference.run_inference_map), kept so the old-vs-new
+    # evaluation delta can be measured. Both paths run at decode_dtype, so the delta
+    # isolates the decode path rather than mixing in a precision change.
+    score_legacy_path: bool = True
+
     # Fast Inference
     use_fast_inference: bool = True
     num_inference_workers: int = 0
-    
+
     # Reproducibility
     strict_reproducibility: bool = False
 
     def get_eval_sets(self) -> List[types.DatasetConfig]:
         return [types.DatasetConfig.from_dict(ds) for ds in self.eval_sets]
+
+    def get_ood_eval_sets(self) -> List[types.DatasetConfig]:
+        return [types.DatasetConfig.from_dict(ds) for ds in self.ood_eval_sets]
 
 
 @dataclasses.dataclass
@@ -92,6 +114,11 @@ class TrainConfig(BaseConfig):
     data_fractions: List[float] = simple_parsing.list_field(1.0)
     # Number of random subsets to train for each fraction
     num_subsets: int = 1
+    # Index of the FIRST partition to run, so a single (fraction, subset) cell can be
+    # its own run. Subsets are selected explicitly by this index.
+    # which the rerun cannot do: invariant 1 is one job = one run directory, and
+    # A single subset index makes each example run independently reproducible.
+    subset_index: int = 0
 
     # Training parameters
     num_epochs: float = 3.0
@@ -104,11 +131,58 @@ class TrainConfig(BaseConfig):
     max_steps: int = 0  # if > 0, overrides num_epochs
     max_steps_fraction: float = 1.0  # Fraction of the calculated_max_steps to use
 
+    # Optimizer / scheduler, stated explicitly instead of inherited silently from
+    # Explicit training settings make runs self-describing.
+    optim: str = "adamw_torch"
+    lr_scheduler_type: str = "linear"
+    max_grad_norm: float = 1.0
+    adam_beta1: float = 0.9
+    adam_beta2: float = 0.999
+    adam_epsilon: float = 1e-8
+
+    # Data-order seed policy (see the audit, §1.1 / §3.3).
+    #   "fixed" -> shuffle_seed = data_seed always (original behaviour: run-to-run
+    #              variation comes only from initialization and dropout)
+    #   "seed"  -> shuffle_seed = seed always (also changes WHICH samples a
+    #              fractional run sees, conflating subset identity with noise)
+    #   "auto"  -> seed at fraction == 1.0, data_seed otherwise
+    data_order_seed_mode: str = "auto"
+
     # Evaluation / Train
     do_train: bool = True
     do_predict: bool = True
-    eval_steps: int = 1000
+    # Absolute step grids, so curves from a 1.1k-step data-limited run and a 42k-step
+    # fixed-budget runs use a comparable step axis.
+    logging_steps: int = 25
+    eval_steps: int = 250
+    eval_on_start: bool = True
     log_dataset_metadata: bool = True
+    # Number of training samples logged before training starts. Doubles as the
+    # non-empty check and as the data-order fingerprint recorded in the manifest.
+    # Costs one extra pass over the head of the stream; set to 0 only if that pass
+    # is prohibitive (it should not be -- see the note in train.py).
+    preview_samples: int = 3
+
+    # Periodic trainable-only checkpoints and the best-val-vs-final comparison
+    # Enabled on selected full-FT runs; checkpoints are
+    # deleted in-job once the comparison is written.
+    checkpoint_fraction: float = 0.0  # 0 disables; 0.1 => ~10 checkpoints
+    run_best_vs_final: bool = False
+    best_vs_final_max_samples: int = 2000
+
+    # Weight persistence. "adapter" saves LoRA adapters only; "trainable" saves a
+    # trainable-only fp16 state dict (the encoder is frozen, so persisting it is pure
+    # waste); "full" restores the old behaviour. Default resolves by method.
+    save_mode: str = "auto"  # auto | adapter | trainable | full
+
+    # Scoped exception for encoder-control experiments:
+    # does decoder-side adaptation really capture the dominant domain-specific gains?).
+    # That experiment cannot be run without adapting encoder layers, but every other
+    # claim in the study is scoped to a frozen encoder, so the guards in
+    # train.set_trainable_parameters and utils.save_trainable_state stay armed unless a
+    # config sets this explicitly. It is recorded in the resolved config of every run,
+    # so a B5 run is identifiable from its manifest alone. Do not default it to True.
+    allow_encoder_adaptation: bool = False
 
     def get_train_sets(self) -> List[types.DatasetConfig]:
         return [types.DatasetConfig.from_dict(ds) for ds in self.train_sets]
