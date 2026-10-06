@@ -23,10 +23,27 @@ larger decoder scopes are adapted.
 ## Installation
 
 Python 3.12 is supported. The runner scripts prefer the project Poetry
-environment. Install the locked environment with:
+environment.
+
+### Install Poetry
+
+If Poetry is not installed, follow the official Poetry installation
+instructions for your operating system. A portable option is:
 
 ```bash
-poetry install --without dev
+pipx install poetry
+```
+
+On macOS with Homebrew, you can instead use:
+
+```bash
+brew install poetry
+```
+
+Then install the project dependencies:
+
+```bash
+poetry install
 ```
 
 Hugging Face access may require accepted dataset terms and a local `HF_TOKEN`.
@@ -58,7 +75,7 @@ learning-rate, fraction, subset, seed, and regime settings are summarized in
 Bootstrap analysis over completed run directories is run with:
 
 ```bash
-python scripts/z1_bootstrap.py --scan outputs/rev
+python scripts/z1_bootstrap.py --scan outputs/
 ```
 
 Statistical analysis consumes completed prediction and reference artifacts;
@@ -68,9 +85,7 @@ generated run artifacts are intentionally excluded here.
 
 Training writes a run manifest, metrics, evaluation predictions, cost metadata,
 and trainable weights beneath the configured output directory. Completed run
-artifacts are authoritative for executed budgets. The executed GigaSpeech
-full-data/fixed-budget setting was **42,489 steps**; references to 42,504 are
-stale unless a completed artifact proves otherwise.
+artifacts are authoritative for executed budgets.
 
 The main optimisation setting is AdamW with a linear schedule, learning rate
 `1e-5`, warmup ratio `0.01`, weight decay `0.1`, batch size `16`, gradient
@@ -80,7 +95,4 @@ experiment specification. Evaluation uses greedy English transcription with a
 maximum of 200 generated tokens.
 
 Experiments were designed for a single NVIDIA RTX A6000 with FP16 and batch
-size 16. Runtime and memory depend on dataset, adaptation depth, and hardware.
-Exact fractional subsets require the original dataset ordering and recorded
-data-order seed. This repository does not ship checkpoints, logs, predictions,
-or other generated run artifacts.
+size 16.
